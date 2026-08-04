@@ -17,6 +17,35 @@ Check with the user that these seams match their expectations.
 
 3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 
+4. After the issue is created, publish a local copy to `docs/prds/<issue-number>-<short-slug>.md` on its own PR.
+
+   **Preflight**: `git status` must be clean. If dirty, stop and ask the user to stash/commit first — don't drag unrelated changes into the PRD PR.
+
+   **File contents** = the same PRD body, prefixed with:
+
+   ```markdown
+   > **Source of truth**: <issue URL>
+   > This file is a local snapshot — the issue is authoritative. Regenerate rather than edit in place.
+   ```
+
+   `<short-slug>` = lowercase, hyphenated, ~3–5 words from the issue title.
+
+   **Ask the user explicitly before creating the PR.** Then:
+
+   ```bash
+   git checkout -b prd/<issue-number>-<short-slug>
+   mkdir -p docs/prds
+   # write the file to docs/prds/<issue-number>-<short-slug>.md
+   git add docs/prds/<issue-number>-<short-slug>.md
+   git commit -m "docs(prd): snapshot for #<issue-number>"
+   git push -u origin prd/<issue-number>-<short-slug>
+   gh pr create \
+     --title "docs(prd): <Issue Title> (#<issue-number>)" \
+     --body "Local snapshot of PRD for #<issue-number>. Source of truth is the issue."
+   ```
+
+   PR title uses Conventional Commits so `pr-lint.yml` passes. Return the PR URL to the user alongside the issue URL.
+
 <prd-template>
 
 ## Problem Statement

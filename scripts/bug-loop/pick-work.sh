@@ -37,6 +37,16 @@ if [[ -z "$repo" ]]; then
     || die "no-repo-detected"
 fi
 
+# The loop pushes branches, opens PRs, and applies labels. Without write access it
+# cannot do any of that — and GitHub fails those quietly (a label request from a
+# read-only account is dropped with a 200, not an error), which surfaces as a loop that
+# looks like it is running and never accomplishes anything. Fail loudly here instead.
+if [[ "$(gh api "repos/$repo" --jq '.permissions.push' 2>/dev/null)" != "true" ]]; then
+  echo "ERROR=no-push-permission" >&2
+  echo "HINT=active gh account '$gh_user' has read-only access to $repo; switch with 'gh auth switch' or re-authenticate the account that owns it" >&2
+  exit 1
+fi
+
 slugify() {
   printf '%s' "$1" \
     | tr '[:upper:]' '[:lower:]' \
