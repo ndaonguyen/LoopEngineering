@@ -52,3 +52,27 @@ with GitHub Actions CI and Claude skills.
 
 > **Client framework:** template param `--client-framework` (`-cf`) = `react` (default) or
 > `none` (API only). Driven by `ClientFramework` symbol → computed `UseReact` / `UseApiOnly`,
+
+## The bug loop
+
+An autonomous loop that turns **`bug`-labelled GitHub issues into green PRs**. Full design:
+`docs/bug-loop.md`.
+
+- `.claude/skills/bug-loop/` — orchestrator. **One tick**: poll, dispatch one unit of work, report, stop.
+  Repeat with `/loop 30m /bug-loop` or a scheduled task.
+- `.claude/skills/fix-bug-issue/` — worker. One issue: worktree → draft PR → `diagnosing-bugs` →
+  `tdd` → CI green.
+- `scripts/bug-loop/pick-work.sh` — the decision, derived entirely from GitHub. `gh` only
+  (**no standalone `jq` on this machine** — shape JSON with gh's `--jq`).
+
+**State lives on GitHub, never locally.** Branch `fix/<n>-<slug>` is the join key between issue
+and PR; `<!-- bug-loop:attempt -->` comments are the attempt counter; the `bug-loop-blocked`
+label means hands-off. Do not add a local state file.
+
+**Invariants:** bugs only; never merges; never touches `main`; never closes an issue by hand
+(`Closes #<n>` does it on merge); one bug at a time; always in a worktree so the user's checkout
+stays clean. PR titles need a Conventional Commits prefix — `pr-lint.yml` enforces it, so bug PRs
+are `fix:`. Changing the branch prefix means changing `pick-work.sh` and both skills together.
+
+**Preflight uses `gh api user`, not `gh auth status`** — status exits non-zero when any configured
+account holds a stale token, even when the active account is fine.
