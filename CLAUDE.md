@@ -69,6 +69,12 @@ An autonomous loop that turns **`bug`-labelled GitHub issues into green PRs**. F
 and PR; `<!-- bug-loop:attempt -->` comments are the attempt counter; the `bug-loop-blocked`
 label means hands-off. Do not add a local state file.
 
+**Memory lives in the repo.** `docs/bug-loop-learnings.md` holds cross-issue debugging knowledge
+(test seams, dead-end hypotheses, misleading errors) — read at `fix-bug-issue` Step 4, appended
+at Step 8 so entries ride in a fix PR and get human review. Escalated PRs never write to it. The
+bar for an entry is "would knowing this at Step 4 have saved time?", so **no entry is the normal
+outcome** — it is not a changelog.
+
 **Invariants:** bugs only; never merges; never touches `main`; never closes an issue by hand
 (`Closes #<n>` does it on merge); one bug at a time; always in a worktree so the user's checkout
 stays clean. PR titles need a Conventional Commits prefix — `pr-lint.yml` enforces it, so bug PRs

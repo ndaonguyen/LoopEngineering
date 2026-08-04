@@ -103,18 +103,26 @@ git -C <main-repo> worktree add -b fix/<n>-<slug> ../LoopEngineering-worktrees/f
 
 ---
 
-## Step 4: Diagnose — fan out to a sub-agent
+## Step 4: Diagnose — recall first, then fan out
 
-Dispatch diagnosis to a sub-agent so the noisy part of the work (reading half the repo
-to find the failure path) does not crowd out the fix.
+**Read `docs/bug-loop-learnings.md` before anything else.** It is the loop's memory of
+debugging *this* codebase: known test seams, known dead ends, error messages that point
+away from their cause. Pull forward every entry matching this bug's area or symptom class
+and carry them into the next step — a known dead end is worth more than a known seam,
+because it deletes hypotheses you were about to spend attempts on.
+
+Then dispatch diagnosis to a sub-agent, so the noisy part of the work (reading half the
+repo to find the failure path) does not crowd out the fix.
 
 Spawn `Explore` (or `general-purpose`) with:
 
 > Bug report: `<issue title + body + repro>`.
 > Repo: Clean-Architecture .NET service — read `CLAUDE.md` first.
+> Already known from previous bugs: `<the matching learnings, verbatim>`.
 > Find the code path that produces this symptom. Report: the entry point, the files and
 > line numbers on the path, the seam where a test could observe the failure, and the two
-> or three most likely causes with evidence. Do not fix anything.
+> or three most likely causes with evidence. Do not re-propose a hypothesis listed above
+> as a dead end unless you have evidence that overturns it. Do not fix anything.
 
 While it runs, read the issue's linked code yourself. When it reports back, **verify its
 claims against the files** before trusting them — a sub-agent's confident wrong answer
@@ -232,7 +240,53 @@ Before marking ready, get a second opinion. Spawn a sub-agent:
 > does the fix address the reported symptom's *root cause* rather than masking it, and
 > does the regression test actually fail without the fix? Report concerns, do not edit.
 
-Act on anything real, then:
+Act on anything real.
+
+### Write back to memory
+
+**First, check whether you already did this on an earlier tick:**
+
+```bash
+git log origin/main..HEAD --oneline -- docs/bug-loop-learnings.md
+```
+
+Any commit there means this branch has already written its learning — skip straight to
+**Hand off**. Without this check a tick that ends while CI re-runs comes back to Step 8
+and writes the entry twice.
+
+Otherwise, decide whether this bug taught the loop anything durable. Read
+`docs/bug-loop-learnings.md` — the bar and the entry format are defined there. In short:
+write an entry **only** if knowing it at Step 4 would have saved you time — a non-obvious
+test seam, a dead-end hypothesis that cost attempts, a misleading error, or a structural
+cause that will recur.
+
+**Most fixes teach nothing durable, and no entry is the normal outcome.** Do not
+paraphrase the fix or the issue; those already live in the PR and the issue. If an
+existing entry covers this ground, *sharpen that one* instead of appending a near-
+duplicate; if one proved wrong, correct or delete it here.
+
+If you do write one, commit it on this branch so it ships inside the PR:
+
+```bash
+git add docs/bug-loop-learnings.md
+git commit -m "docs: record bug-loop learning from #<n>"
+git push
+```
+
+That is deliberate: the learning goes through the same human review as the fix, which is
+the only thing stopping this file from accumulating confident nonsense. A learning
+committed on a PR that never merges never lands — which is the correct outcome.
+
+This push restarts CI. Wait for it before marking ready:
+
+```bash
+gh pr checks <pr> --repo $REPO --watch --fail-fast
+```
+
+A docs-only commit should not break a green build; if it does, something else is wrong —
+go back to Step 7's failure path rather than marking ready anyway.
+
+### Hand off
 
 ```bash
 gh pr edit <pr> --repo $REPO --body "<updated body: Root cause + Fix filled in>"
@@ -277,3 +331,8 @@ unknown>. Suggested next step: <concrete>."
 The `bug-loop-blocked` label makes the picker skip this PR permanently, so the loop
 moves to the next bug instead of grinding. Leave the branch and worktree intact for the
 human. A well-written stuck report is a successful outcome; a wrong fix is not.
+
+**Do not write to `docs/bug-loop-learnings.md` when escalating.** An escalated PR never
+merges, so the entry would never reach `main` — and a lesson drawn from a bug you did not
+actually solve is exactly the kind of plausible-but-unverified claim that poisons the
+file. The stuck report *is* the memory for this one; put the dead ends there, in full.

@@ -19,7 +19,7 @@ The loop is built against the Loop Engineering pillars; here is where each one a
 | **Worktrees** | Every issue gets `../LoopEngineering-worktrees/fix-<n>`. Your checkout is never switched or dirtied. |
 | **Skills** | `bug-loop` (orchestrator) → `fix-bug-issue` (worker) → `diagnosing-bugs` + `tdd` (existing repo skills, reused not reimplemented). |
 | **Sub-Agents** | Diagnosis fans out to `Explore`; the pre-ready review fans out to a second agent. Keeps the noisy repo-reading out of the fixing context. |
-| **Memory / State** | GitHub *is* the state store — branches, labels, and marker comments. No local state file to desync. |
+| **Memory / State** | Two layers. *State* (per-issue, disposable) lives on GitHub — branches, labels, marker comments; no local file to desync. *Memory* (cross-issue, durable) is `docs/bug-loop-learnings.md`, read before diagnosis and appended after a fix. |
 | **Plugins** | `gh` CLI is the GitHub transport. Swappable for a GitHub MCP server without touching the skills — only `pick-work.sh` knows the transport. |
 
 ---
@@ -30,6 +30,7 @@ The loop is built against the Loop Engineering pillars; here is where each one a
 .claude/skills/bug-loop/SKILL.md        one tick: poll, dispatch, report, stop
 .claude/skills/fix-bug-issue/SKILL.md   one issue: worktree → draft PR → TDD fix → green
 scripts/bug-loop/pick-work.sh           the decision: what to do next, derived from GitHub
+docs/bug-loop-learnings.md              the memory: what debugging this repo has taught it
 ```
 
 The split matters: `pick-work.sh` is deterministic and cheap, so *deciding* costs one
@@ -61,6 +62,24 @@ In-flight work always outranks new work — the loop finishes what it started.
 
 Nothing is cached locally, so a scheduled run on Tuesday picks up exactly where
 Monday's in-session run left off.
+
+### Memory, in the repo
+
+That state is *disposable* — it dies when the PR merges. The durable half is
+[`docs/bug-loop-learnings.md`](bug-loop-learnings.md): test seams that were non-obvious,
+hypotheses that were plausible and wrong, error messages that point away from their
+cause. Step 4 reads it before diagnosing; Step 8 appends to it after fixing.
+
+Three properties keep it useful rather than a landfill:
+
+- **Entries ride in the fix PR**, so a human reviews every one before it reaches `main`.
+  That review is the only real defence against the loop confidently recording nonsense.
+- **The bar is "would this have saved me time at Step 4?"** — not "what did I fix?".
+  The fix is already in the PR and the bug is already in the issue; neither belongs here.
+  Most fixes teach nothing durable, and **no entry is the expected outcome**.
+- **Escalations never write to it.** A bug the loop gave up on has an unmerged PR, and a
+  lesson drawn from an unsolved bug is unverified by construction. Its stuck report
+  carries the dead ends instead.
 
 ---
 

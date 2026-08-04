@@ -28,6 +28,11 @@ So the loop survives restarts, a different machine, a scheduled run, and a human
 things in the browser mid-flight. If you ever feel the urge to write a `.bug-loop-state.json`,
 the answer belongs on GitHub instead.
 
+That state is **disposable** — it dies with the PR. The loop's **durable memory** is
+`docs/bug-loop-learnings.md`, in the repo: seams, dead ends, and misleading signals
+learned from previous bugs. `fix-bug-issue` reads it at Step 4 and appends at Step 8, so
+entries ride in a fix PR and pass human review before they land.
+
 ---
 
 ## Step 1: Ask what to do
