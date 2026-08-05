@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Loop.Engine.Core\Loop.Engine.Core.csproj" />
     <ProjectReference Include="..\Loop.Engine.GitHub\Loop.Engine.GitHub.csproj" />
+    <ProjectReference Include="..\Loop.Engine.Agents\Loop.Engine.Agents.csproj" />
   </ItemGroup>
 
   <ItemGroup>

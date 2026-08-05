@@ -26,11 +26,33 @@ markdown is the human-readable view of it.
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| AI SDK | **`Anthropic` NuGet package** (official, v12.x) via its `Microsoft.Extensions.AI` `IChatClient` integration | One package, not a community shim. `IChatClient` is trivially fakeable, so the agent is testable with no network and no API key. Semantic Kernel's kernels/plugins/planners buy orchestration Phase 2 doesn't need. |
+| AI SDK | **`Anthropic` NuGet package** (official, v12.39.0) via its `Microsoft.Extensions.AI` `IChatClient` integration | One package, not a community shim. `IChatClient` is trivially fakeable, so the agent is testable with no network and no API key. Semantic Kernel's kernels/plugins/planners buy orchestration Phase 2 doesn't need. |
 | Model | `claude-opus-5` | The SDK's documented default. Diagnosis is the reasoning-heavy step; this is not where to economise. |
 | Retrieval | Keyword + path heuristics | Stack-trace bugs carry their own retrieval keys. No index to keep fresh. Embeddings deferred to Sprint 2 — see the input file's ruled-out list. |
-| Report shape | **Structured outputs** (`OutputConfig.Format`, JSON schema) → then rendered to markdown | Resolves an open question from the input file. Parsing prose for a file list is fragile; a schema makes `AffectedFiles` a typed contract Phase 3 can depend on. Markdown becomes a pure render of the parsed object. |
+| Report shape | **Structured output via `IChatClient.GetResponseAsync<T>()`** → then rendered to markdown | Resolves an open question from the input file. Parsing prose for a file list is fragile; a schema makes `AffectedFiles` a typed contract Phase 3 can depend on. Markdown becomes a pure render of the parsed object. |
 | Repo checkout | **Point at a local path; do not clone** | Resolves the second open question. The engine already runs beside the repo, and cloning adds credentials and disk management this phase doesn't need. `RepositoryOptions.RootPath`, defaulted to the solution root. Cloning becomes a concern when Phase 5 needs a worktree. |
+| Effort / thinking | Start at **`effort: high`**, adaptive thinking on | Diagnosis is the reasoning-heavy step. `IChatClient` hides these knobs — reach them through `ChatOptions.RawRepresentationFactory`. Do not silently take the default; make it a config value so it can be swept later. |
+
+### API shapes — verified by compiling against `Anthropic` 12.39.0
+
+These were checked, not assumed. Use them verbatim:
+
+```csharp
+IChatClient chat = new AnthropicClient().AsIChatClient("claude-opus-5");
+
+// Structured output — this is the Extensions.AI layer, NOT Anthropic's OutputConfig.Format,
+// which is unreachable through IChatClient by design.
+ChatResponse<InvestigationReport> typed = await chat.GetResponseAsync<InvestigationReport>(prompt);
+InvestigationReport? report = typed.Result;
+
+// Provider-specific knobs (thinking, effort) escape hatch:
+var options = new ChatOptions { RawRepresentationFactory = _ => /* Anthropic params */ };
+```
+
+`Anthropic` 12.39.0 depends on `Microsoft.Extensions.AI.Abstractions` 10.5.1 and ships
+`net8.0` / `net9.0` / `netstandard2.0` assets — no `net10.0` folder. It resolves via the
+`net9.0` assets on this solution's `net10.0` target and builds clean. Not a problem; just
+don't go looking for a `net10.0` lib directory.
 
 ---
 
@@ -70,9 +92,12 @@ treatment.
 
 - `InvestigationAgent : IInvestigator`, constructor-injected `IChatClient` (from
   `Microsoft.Extensions.AI`), `FileRetriever`, `IOptions<InvestigationOptions>`, logger.
-- `InvestigationReport` — the JSON-schema DTO the model fills in: `symptoms`,
-  `possible_root_causes[]`, `affected_files[]`, `confidence`, `recommended_investigation`.
-  Mapped onto `AnalysisResult` after the call.
+- `InvestigationReport` — the DTO `GetResponseAsync<InvestigationReport>()` fills in:
+  `symptoms`, `possible_root_causes[]`, `affected_files[]`, `confidence`,
+  `recommended_investigation`. Mapped onto `AnalysisResult` after the call. A `null`
+  `ChatResponse<T>.Result` means the model returned something unparseable — **throw, don't
+  return an empty `AnalysisResult`**, or Phase 3 receives an empty allow-list and silently
+  investigates nothing.
 - `InvestigationPrompt` — **static, pure, and therefore assertable in a test.** Builds the
   system + user message from the issue and the retrieved excerpts.
 - The prompt must state the constraint the issue states: *investigate, do not propose code
@@ -85,8 +110,13 @@ treatment.
 - `InvestigationMarkdown.Render(AnalysisResult, Issue)` → the `investigation.md` body.
   Pure function; asserted directly.
 - `AddLoopEngineAgents(IConfiguration)` — bind `InvestigationOptions` and
-  `RepositoryOptions` with `ValidateDataAnnotations().ValidateOnStart()`, register the
-  Anthropic-backed `IChatClient`, register `IInvestigator`.
+  `RepositoryOptions` with `ValidateDataAnnotations().ValidateOnStart()`, register
+  `IChatClient` via `new AnthropicClient().AsIChatClient(options.Model)`, register
+  `IInvestigator`.
+- **Credentials:** the SDK reads `ANTHROPIC_API_KEY` from the environment by default.
+  Support that *and* an explicit `Anthropic:ApiKey` config value, and make the
+  `ValidateOnStart()` check assert on whichever one is actually in force — otherwise the
+  fail-loud check passes while the credential the client uses is missing.
 
 **Pattern to mimic:** `Loop.Engine.GitHub/DependencyInjection.cs` — same options binding,
 same `ValidateOnStart()`. That fail-loud-at-startup choice is why a missing GitHub token
@@ -106,8 +136,10 @@ findings".
 
 ### 6. Tests
 
-**Files:** `tests/Loop.Engine.Tests/SymbolExtractorTests.cs`, `InvestigationPromptTests.cs`, `InvestigationMarkdownTests.cs`, `InvestigationAgentTests.cs`, `Fakes/FakeChatClient.cs`
+**Files:** `tests/Loop.Engine.Tests/Loop.Engine.Tests.csproj` (edit), `SymbolExtractorTests.cs`, `InvestigationPromptTests.cs`, `InvestigationMarkdownTests.cs`, `InvestigationAgentTests.cs`, `Fakes/FakeChatClient.cs`
 
+- **Add a `ProjectReference` to `Loop.Engine.Agents`** — the test project currently
+  references only `Core` and `Worker`, so none of the below compiles without it.
 - `FakeChatClient : IChatClient` — returns a canned JSON payload. **No network, no API
   key, in any test.** This is a hard requirement from the input file, not a preference.
 - `SymbolExtractorTests` — a real stack trace in, the right type and method names out.
@@ -143,6 +175,17 @@ and that mismatch already broke one test in Phase 1.
 - **Retrieval fails silently on issues without stack traces.** Acceptable this phase —
   the loop's own `fix-bug-issue` skill already refuses issues with no repro. If the
   retriever finds nothing, say so in the report rather than sending an empty context.
+
+## Scope changes against the original issue
+
+The plan narrows #3 in three places. **Issue #3 has been amended to match** — these are
+recorded here so the divergence is auditable rather than buried in a decisions table.
+
+| Original checklist item | Now | Why |
+| --- | --- | --- |
+| "Download / check out the target repository" | Point at a local path | The engine runs beside the repo. Cloning adds credential and disk management with no payoff until Phase 5 needs a worktree. |
+| "Index source files" | Glob on demand | An index is a second source of truth that goes stale. At this repo's size a glob is faster than keeping one fresh. |
+| Learn "Roslyn syntax-tree basics" | Deferred to Phase 3 | Retrieval needs to find *files*, which text matching does. Roslyn earns its place when the Coder needs to modify syntax, not read it. |
 
 ## Out of scope
 
