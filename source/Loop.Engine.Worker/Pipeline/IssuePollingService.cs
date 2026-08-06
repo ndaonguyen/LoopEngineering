@@ -20,21 +20,27 @@ public sealed class IssuePollingService : BackgroundService
 {
     private readonly IIssueSource _issues;
     private readonly IInvestigator _investigator;
+    private readonly IHostApplicationLifetime _lifetime;
     private readonly GitHubOptions _gitHub;
     private readonly InvestigationOptions _investigation;
+    private readonly PipelineOptions _pipeline;
     private readonly ILogger<IssuePollingService> _logger;
 
     public IssuePollingService(
         IIssueSource issues,
         IInvestigator investigator,
+        IHostApplicationLifetime lifetime,
         IOptions<GitHubOptions> gitHub,
         IOptions<InvestigationOptions> investigation,
+        IOptions<PipelineOptions> pipeline,
         ILogger<IssuePollingService> logger)
     {
         _issues = issues;
         _investigator = investigator;
+        _lifetime = lifetime;
         _gitHub = gitHub.Value;
         _investigation = investigation.Value;
+        _pipeline = pipeline.Value;
         _logger = logger;
     }
 
@@ -49,6 +55,13 @@ public sealed class IssuePollingService : BackgroundService
         do
         {
             await PollOnceAsync(stoppingToken);
+
+            if (_pipeline.RunOnce)
+            {
+                _logger.LogInformation("RunOnce set — stopping after a single tick.");
+                _lifetime.StopApplication();
+                return;
+            }
         }
         while (await SafeWaitAsync(timer, stoppingToken));
     }
@@ -60,7 +73,7 @@ public sealed class IssuePollingService : BackgroundService
             var issues = await _issues.GetOpenIssuesAsync(cancellationToken);
             Console.WriteLine(IssueReportFormatter.FormatAll(issues));
 
-            var target = issues.OrderBy(i => i.Number).FirstOrDefault();
+            var target = SelectTarget(issues);
             if (target is not null)
             {
                 await InvestigateAsync(target, cancellationToken);
@@ -72,6 +85,29 @@ public sealed class IssuePollingService : BackgroundService
             // wait for the next tick. Anything non-transient keeps showing up in the logs.
             _logger.LogError(ex, "Poll failed; retrying on the next tick.");
         }
+    }
+
+    /// <summary>
+    /// The configured issue when one is set, otherwise the oldest open one. An explicitly
+    /// requested issue that isn't open is an error worth saying out loud — silently
+    /// investigating a different issue would look like success.
+    /// </summary>
+    private Issue? SelectTarget(IReadOnlyList<Issue> issues)
+    {
+        if (_pipeline.IssueNumber is not { } wanted)
+        {
+            return issues.OrderBy(i => i.Number).FirstOrDefault();
+        }
+
+        var match = issues.FirstOrDefault(i => i.Number == wanted);
+        if (match is null)
+        {
+            _logger.LogError(
+                "Pipeline:IssueNumber={Wanted} was requested but is not among the {Count} open issue(s). " +
+                "Nothing investigated this tick.", wanted, issues.Count);
+        }
+
+        return match;
     }
 
     private async Task InvestigateAsync(Issue issue, CancellationToken cancellationToken)
