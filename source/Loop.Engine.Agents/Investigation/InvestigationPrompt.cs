@@ -26,6 +26,22 @@ public static class InvestigationPrompt
 
         In `affected_files`, list only paths that appear in the excerpts below, exactly as
         given. Do not invent paths.
+
+        # Output format
+
+        Reply with a single JSON object and nothing else. No prose before or after it, no
+        markdown code fence, no <analysis> wrapper. The output is parsed by a program.
+
+        {
+          "symptoms": "what the reporter observes, one short paragraph",
+          "possible_root_causes": ["most likely mechanism first"],
+          "affected_files": ["exact path from the excerpts below"],
+          "confidence": 0.0,
+          "recommended_investigation": "how to confirm the cause"
+        }
+
+        `confidence` is a number between 0 and 1. Every array may be empty; no field may be
+        omitted.
         """;
 
     public static string BuildUserMessage(Issue issue, IReadOnlyList<RetrievedFile> files)

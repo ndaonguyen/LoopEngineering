@@ -47,14 +47,18 @@ public sealed class InvestigationAgent : IInvestigator
 
         var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
 
-        var response = await _chat.GetResponseAsync<InvestigationReport>(
-            messages, options, cancellationToken: cancellationToken);
+        // Plain text response, parsed here. GetResponseAsync<T> was tried first and does
+        // not produce JSON through this provider — neither its prompt-based fallback nor
+        // useJsonSchemaResponseFormat:true reached the wire, and the model returned prose
+        // because nothing had told it the field names. The contract now lives in the
+        // prompt, so parsing has to tolerate how models actually honour prompts.
+        var response = await _chat.GetResponseAsync(messages, options, cancellationToken);
 
         // TryGetResult, not .Result: the property throws a raw JsonException, which tells
         // an operator nothing about which issue failed or why it matters. Failing loudly
         // is deliberate — an empty AnalysisResult would hand Phase 3 an empty allow-list
         // and the pipeline would report success having investigated nothing.
-        if (!response.TryGetResult(out var report))
+        if (!ReportParser.TryParse(response.Text, out var report))
         {
             // Report the finish reason and text length, not just the text: an empty
             // response with FinishReason=Length means the token budget was spent on
