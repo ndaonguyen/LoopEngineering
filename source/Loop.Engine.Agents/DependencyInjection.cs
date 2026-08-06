@@ -1,5 +1,7 @@
 using Anthropic;
+using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
+using Loop.Engine.Agents.Planning;
 using Loop.Engine.Agents.Retrieval;
 using Loop.Engine.Core.Abstractions;
 using Microsoft.Extensions.AI;
@@ -42,7 +44,11 @@ public static class DependencyInjection
             return client.AsIChatClient(options.Model);
         });
 
+        services.AddSingleton<DiffGenerator>();
+
         services.AddSingleton<IInvestigator, InvestigationAgent>();
+        services.AddSingleton<IPlanner, PlannerAgent>();
+        services.AddSingleton<ICoder, CoderAgent>();
 
         return services;
     }

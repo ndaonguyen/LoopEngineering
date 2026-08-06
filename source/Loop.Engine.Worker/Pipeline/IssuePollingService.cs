@@ -9,17 +9,20 @@ using Microsoft.Extensions.Options;
 namespace Loop.Engine.Worker.Pipeline;
 
 /// <summary>
-/// The scheduler. Polls GitHub on an interval, prints what it finds, and investigates the
-/// oldest open issue.
+/// The scheduler. Polls GitHub on an interval, prints what it finds, investigates one
+/// issue, and — when <see cref="PipelineOptions.GenerateFix"/> is set — plans and writes a
+/// fix diff for it.
 ///
-/// Phase 2 stops at analysis on purpose — no plan, no code, no PR. One issue per tick:
-/// concurrency belongs to a later phase, and adding it here would only make the first
-/// failures harder to read.
+/// It stops at the diff. No branch, no commit, no PR, and no build: verifying the fix is
+/// Phase 4 and publishing it is Phase 5. One issue per tick, because concurrent branches
+/// racing each other would only make the first failures harder to read.
 /// </summary>
 public sealed class IssuePollingService : BackgroundService
 {
     private readonly IIssueSource _issues;
     private readonly IInvestigator _investigator;
+    private readonly IPlanner _planner;
+    private readonly ICoder _coder;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly GitHubOptions _gitHub;
     private readonly InvestigationOptions _investigation;
@@ -29,6 +32,8 @@ public sealed class IssuePollingService : BackgroundService
     public IssuePollingService(
         IIssueSource issues,
         IInvestigator investigator,
+        IPlanner planner,
+        ICoder coder,
         IHostApplicationLifetime lifetime,
         IOptions<GitHubOptions> gitHub,
         IOptions<InvestigationOptions> investigation,
@@ -37,6 +42,8 @@ public sealed class IssuePollingService : BackgroundService
     {
         _issues = issues;
         _investigator = investigator;
+        _planner = planner;
+        _coder = coder;
         _lifetime = lifetime;
         _gitHub = gitHub.Value;
         _investigation = investigation.Value;
@@ -118,6 +125,54 @@ public sealed class IssuePollingService : BackgroundService
         Console.WriteLine();
         Console.WriteLine($"Investigated #{issue.Number} -> {path}");
         Console.WriteLine($"Affected files: {analysis.AffectedFiles.Count}");
+
+        if (_pipeline.GenerateFix)
+        {
+            await GenerateFixAsync(issue, analysis, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Phase 3: plan, then code, then write the diff. Stops there — no branch, no commit,
+    /// no PR, and no build. Verifying the diff is Phase 4's job.
+    /// </summary>
+    private async Task GenerateFixAsync(Issue issue, AnalysisResult analysis, CancellationToken cancellationToken)
+    {
+        var plan = await _planner.PlanAsync(issue, analysis, cancellationToken);
+
+        Console.WriteLine();
+        Console.WriteLine($"Plan for #{issue.Number}:");
+        foreach (var step in plan.Steps)
+        {
+            Console.WriteLine($"  {step.Order}. {step.Description}");
+        }
+
+        var changes = await _coder.WriteCodeAsync(issue, analysis, plan, cancellationToken);
+
+        if (!changes.HasChanges)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Coder produced no textual change for #{issue.Number}.");
+            return;
+        }
+
+        var diffPath = await WriteDiffAsync(issue, changes.UnifiedDiff, cancellationToken);
+
+        Console.WriteLine();
+        Console.WriteLine($"Wrote fix for #{issue.Number} -> {diffPath}");
+        Console.WriteLine($"Files changed: {changes.Edits.Count}");
+    }
+
+    private async Task<string> WriteDiffAsync(Issue issue, string diff, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetFullPath(_investigation.OutputDirectory);
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"fix-{issue.Number}.diff");
+        await File.WriteAllTextAsync(path, diff, cancellationToken);
+
+        _logger.LogInformation("Wrote fix diff for #{Number} to {Path}.", issue.Number, path);
+        return path;
     }
 
     private async Task<string> WriteReportAsync(
