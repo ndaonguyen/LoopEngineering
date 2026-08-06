@@ -21,7 +21,10 @@ public sealed class GitHubOptions
     /// variable in CI. The token needs <b>write</b> access: a read-only token can list
     /// issues but silently fails to label them, which looks like the pipeline doing nothing.
     /// </summary>
-    [Required(AllowEmptyStrings = false)]
+    [Required(AllowEmptyStrings = false, ErrorMessage =
+        "No GitHub token configured. Set it with: " +
+        "dotnet user-secrets set \"GitHub:Token\" (gh auth token) --project source/Loop.Engine " +
+        "— or supply the GitHub__Token environment variable. Never commit the token.")]
     public string Token { get; set; } = string.Empty;
 
     /// <summary>How often the scheduler polls for issues.</summary>
