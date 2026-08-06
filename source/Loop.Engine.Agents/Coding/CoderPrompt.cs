@@ -23,7 +23,9 @@ public static class CoderPrompt
         Preserve the file's existing style exactly: indentation, brace placement, comment
         density, naming. Your edit should be indistinguishable from the surrounding code.
 
-        You may only return files listed below. You cannot see the rest of the repository.
+        You are shown every file involved so you can keep the change coherent across them,
+        but you return exactly one file per reply — the target file named in the request.
+        You cannot see the rest of the repository.
 
         # Output format
 
@@ -32,15 +34,20 @@ public static class CoderPrompt
 
         {
           "edits": [
-            { "path": "exact path from the list", "contents": "the entire new file" }
+            { "path": "the target file", "contents": "the entire new file" }
           ]
         }
 
-        JSON-escape the file contents properly. Omit any file you did not change.
+        JSON-escape the file contents properly. If the target file needs no change, return
+        an empty `edits` array rather than reproducing it unchanged.
         """;
 
     public static string BuildUserMessage(
-        Issue issue, AnalysisResult analysis, FixPlan plan, IReadOnlyList<RetrievedFile> files)
+        Issue issue,
+        AnalysisResult analysis,
+        FixPlan plan,
+        IReadOnlyList<RetrievedFile> files,
+        string targetFile)
     {
         var prompt = new StringBuilder();
 
@@ -79,7 +86,12 @@ public static class CoderPrompt
             prompt.AppendLine();
         }
 
-        prompt.Append("Implement the plan and return the changed files.");
+        prompt.AppendLine($"# Your target this reply: `{targetFile}`");
+        prompt.AppendLine();
+        prompt.Append(
+            $"Apply the parts of the plan that belong in `{targetFile}` and return that " +
+            "file only. The other files are shown for context and are handled separately.");
+
         return prompt.ToString();
     }
 }

@@ -51,31 +51,31 @@ public sealed class CoderAgent : ICoder
 
         using var workspace = EditWorkspace.Create(files);
 
-        List<ChatMessage> messages =
-        [
-            new(ChatRole.System, CoderPrompt.System),
-            new(ChatRole.User, CoderPrompt.BuildUserMessage(issue, analysis, plan, files)),
-        ];
+        // One call per file. A single call returning every changed file blows the output
+        // budget — thinking plus five whole files truncates the JSON mid-string, and the
+        // whole run is lost. Per-file keeps each response small, isolates a failure to one
+        // file, and still shows the model every file so the change stays coherent.
+        var targets = plan.Steps
+            .SelectMany(s => s.Files)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
-        var response = await _chat.GetResponseAsync(messages, options, cancellationToken);
+        var edits = new List<CodeEdit>();
 
-        if (!TolerantJson.TryParse<CodeEditSetDto>(response.Text, out var dto) || dto.Edits.Length == 0)
+        foreach (var target in targets)
         {
-            throw new InvalidOperationException(
-                $"The model returned no parseable edits for issue #{issue.Number}. " +
-                $"FinishReason={response.FinishReason?.ToString() ?? "none"}, " +
-                $"TextLength={response.Text.Length}, " +
-                $"MaxOutputTokens={_options.MaxOutputTokens}.");
+            var edit = await WriteOneFileAsync(issue, analysis, plan, files, target, workspace, cancellationToken);
+            if (edit is not null)
+            {
+                edits.Add(edit);
+            }
         }
-
-        var edits = ApplyEdits(dto, workspace);
 
         if (edits.Count == 0)
         {
             throw new InvalidOperationException(
-                $"Every edit the model proposed for issue #{issue.Number} was rejected — " +
-                "all cited files outside the allow-list, or failed to parse.");
+                $"No usable edit was produced for issue #{issue.Number} across {targets.Count} target file(s) — " +
+                "every reply was unparseable, rejected by the allow-list, or failed to parse as C#.");
         }
 
         var diff = await _diff.GenerateAsync(workspace, cancellationToken);
@@ -88,38 +88,67 @@ public sealed class CoderAgent : ICoder
     }
 
     /// <summary>
-    /// Writes each accepted edit into the workspace. Two gates: the path must be in the
-    /// allow-list (enforced by the workspace), and the result must still parse.
+    /// Asks for one file and stages it. Returns null when the model declines to change it
+    /// or the reply is unusable — a bad file is skipped, not fatal, because the remaining
+    /// files may still produce a useful diff.
     /// </summary>
-    private List<CodeEdit> ApplyEdits(CodeEditSetDto dto, EditWorkspace workspace)
+    private async Task<CodeEdit?> WriteOneFileAsync(
+        Issue issue,
+        AnalysisResult analysis,
+        FixPlan plan,
+        IReadOnlyList<RetrievedFile> files,
+        string target,
+        EditWorkspace workspace,
+        CancellationToken cancellationToken)
     {
-        var accepted = new List<CodeEdit>();
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.System, CoderPrompt.System),
+            new(ChatRole.User, CoderPrompt.BuildUserMessage(issue, analysis, plan, files, target)),
+        ];
 
-        foreach (var edit in dto.Edits)
+        var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
+        var response = await _chat.GetResponseAsync(messages, options, cancellationToken);
+
+        if (!TolerantJson.TryParse<CodeEditSetDto>(response.Text, out var dto))
         {
-            var path = edit.Path.Replace('\\', '/').Trim();
-
-            if (!SyntaxVerifier.Verify(path, edit.Contents, out var errors))
-            {
-                // Catching this here means Phase 4 never sees a mangled file, and the
-                // failure names the file that broke rather than the build that noticed.
-                _logger.LogWarning(
-                    "Rejecting edit to '{Path}' — it no longer parses: {Errors}",
-                    path, string.Join("; ", errors.Take(3)));
-                continue;
-            }
-
-            try
-            {
-                workspace.Write(path, edit.Contents);
-                accepted.Add(new CodeEdit(path, edit.Contents));
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning("Rejecting edit to '{Path}': {Reason}", path, ex.Message);
-            }
+            _logger.LogWarning(
+                "No parseable edit for '{Target}'. FinishReason={Reason}, TextLength={Length}, " +
+                "MaxOutputTokens={Max}. FinishReason=Length means the budget was spent on " +
+                "thinking plus the file body — raise Anthropic:MaxOutputTokens.",
+                target, response.FinishReason?.ToString() ?? "none",
+                response.Text.Length, _options.MaxOutputTokens);
+            return null;
         }
 
-        return accepted;
+        var edit = dto.Edits.FirstOrDefault(e =>
+            string.Equals(e.Path.Replace('\\', '/').Trim(), target, StringComparison.OrdinalIgnoreCase));
+
+        if (edit is null)
+        {
+            _logger.LogInformation("Model returned no change for '{Target}'.", target);
+            return null;
+        }
+
+        if (!SyntaxVerifier.Verify(target, edit.Contents, out var errors))
+        {
+            // Catching this here means Phase 4 never sees a mangled file, and the failure
+            // names the file that broke rather than the build that noticed.
+            _logger.LogWarning(
+                "Rejecting edit to '{Target}' — it no longer parses: {Errors}",
+                target, string.Join("; ", errors.Take(3)));
+            return null;
+        }
+
+        try
+        {
+            workspace.Write(target, edit.Contents);
+            return new CodeEdit(target, edit.Contents);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Rejecting edit to '{Target}': {Reason}", target, ex.Message);
+            return null;
+        }
     }
 }

@@ -115,7 +115,29 @@ public class CoderAgentTests : IDisposable
         var act = () => agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/A.cs"), APlan("src/A.cs"));
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
-            .Which.Message.Should().Contain("no parseable edits");
+            .Which.Message.Should().Contain("No usable edit was produced");
+    }
+
+    [Fact]
+    public async Task WriteCodeAsync_still_produces_a_diff_when_one_file_fails()
+    {
+        GivenFile("src/A.cs", "class A { }\n");
+        GivenFile("src/B.cs", "class B { }\n");
+
+        // The fake replies the same thing to every call, so the request for B yields an
+        // edit to A instead — which is dropped as off-target. One bad file must not sink
+        // the run: per-file calls exist precisely so a failure stays local.
+        var agent = AgentReturning("""
+            {"edits": [{"path": "src/A.cs", "contents": "class A { int x; }\n"}]}
+            """);
+
+        var changes = await agent.WriteCodeAsync(
+            AnIssue(),
+            AnAnalysis("src/A.cs", "src/B.cs"),
+            new FixPlan([new FixPlanStep(1, "Fix both", ["src/A.cs", "src/B.cs"])]));
+
+        changes.Edits.Should().ContainSingle().Which.RelativePath.Should().Be("src/A.cs");
+        changes.UnifiedDiff.Should().Contain("int x");
     }
 
     [Fact]
