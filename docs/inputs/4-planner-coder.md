@@ -13,12 +13,33 @@ The point of the split is that a model asked to plan and code in one breath does
 well: it starts editing before it has decided what it is doing, and the plan becomes a
 post-hoc narration of the edits. Two stages, two prompts, two artifacts.
 
-> ⚠️ **Blocked on Phase 2's exit criterion.** #3 is implemented and green, but nobody has
-> yet read a real `investigation.md` and confirmed the files it names are the right ones.
-> The Coder is restricted to that file list — so if retrieval is weak, this phase inherits
-> the problem and the failure surfaces as "the Coder edited the wrong thing", which is a
-> much more expensive place to discover it. Do not plan this issue until #3 has been run
-> for real against a live key.
+> ✅ **Unblocked — Phase 2's exit criterion passed.** Run against
+> [#8](https://github.com/ndaonguyen/LoopEngineering/issues/8), the Investigation agent
+> named `FileRetriever.cs`, `RepositoryOptions.cs` and `DependencyInjection.cs`: the two
+> files predicted in advance, plus a third that was correct and had been missed. Three
+> symbols extracted from prose narrowed 147 candidates to 7. The Coder can rely on
+> `AffectedFiles`.
+
+## The standing test case: #8
+
+**[#8](https://github.com/ndaonguyen/LoopEngineering/issues/8) is deliberately left
+unfixed** so the pipeline has to earn it. It is a real defect in this codebase whose
+correct answer is already written down — which is what makes it an acceptance vehicle
+rather than a demo.
+
+Phase 3 succeeds concretely when **the Coder produces a compiling diff that fixes #8**,
+touching only the files the investigation identified. Phase 4 then proves the diff is
+correct by running the tests; Phase 5 opens the PR. Use the same issue at each stage —
+the value is in a fixed target, not in variety.
+
+One exposure carried forward, and it lands squarely on this phase. The Phase 2 report
+repeated a **factually wrong claim from the issue text** — that `../..` resolves to `C:\`,
+which it does not (see the correction comment on #8). The model reasoned correctly from a
+false premise and had no way to falsify it, because nothing in Phase 2 executes anything.
+The Coder inherits that exposure: a plan built on a wrong premise yields a confident,
+wrong diff. **Phase 4's build-and-test loop is the first stage that can catch it** — which
+is the argument for keeping verification out of Phase 3 rather than growing a half-version
+of it here.
 
 ## Design / Reference Links
 
