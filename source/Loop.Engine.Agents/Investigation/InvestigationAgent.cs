@@ -3,6 +3,7 @@ using Loop.Engine.Core.Abstractions;
 using Loop.Engine.Core.Model;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Loop.Engine.Agents.Investigation;
 
@@ -14,15 +15,18 @@ public sealed class InvestigationAgent : IInvestigator
 {
     private readonly IChatClient _chat;
     private readonly FileRetriever _retriever;
+    private readonly InvestigationOptions _options;
     private readonly ILogger<InvestigationAgent> _logger;
 
     public InvestigationAgent(
         IChatClient chat,
         FileRetriever retriever,
+        IOptions<InvestigationOptions> options,
         ILogger<InvestigationAgent> logger)
     {
         _chat = chat;
         _retriever = retriever;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -41,8 +45,10 @@ public sealed class InvestigationAgent : IInvestigator
             new(ChatRole.User, InvestigationPrompt.BuildUserMessage(issue, files)),
         ];
 
+        var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
+
         var response = await _chat.GetResponseAsync<InvestigationReport>(
-            messages, cancellationToken: cancellationToken);
+            messages, options, cancellationToken: cancellationToken);
 
         // TryGetResult, not .Result: the property throws a raw JsonException, which tells
         // an operator nothing about which issue failed or why it matters. Failing loudly
@@ -50,8 +56,15 @@ public sealed class InvestigationAgent : IInvestigator
         // and the pipeline would report success having investigated nothing.
         if (!response.TryGetResult(out var report))
         {
+            // Report the finish reason and text length, not just the text: an empty
+            // response with FinishReason=Length means the token budget was spent on
+            // reasoning, which says nothing about tokens if you only print the (empty) body.
             throw new InvalidOperationException(
                 $"The model returned no parseable investigation for issue #{issue.Number}. " +
+                $"FinishReason={response.FinishReason?.ToString() ?? "none"}, " +
+                $"TextLength={response.Text.Length}, " +
+                $"MaxOutputTokens={_options.MaxOutputTokens}, " +
+                $"Usage={response.Usage?.OutputTokenCount?.ToString() ?? "?"} output tokens. " +
                 $"Raw response: {Truncate(response.Text)}");
         }
 

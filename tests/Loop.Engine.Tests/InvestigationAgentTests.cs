@@ -41,7 +41,11 @@ public class InvestigationAgentTests : IDisposable
             Options.Create(new RepositoryOptions { RootPath = _repoRoot }),
             NullLogger<FileRetriever>.Instance);
 
-        return new InvestigationAgent(chat, retriever, NullLogger<InvestigationAgent>.Instance);
+        return new InvestigationAgent(
+            chat,
+            retriever,
+            Options.Create(new InvestigationOptions { Model = "claude-opus-5", OutputDirectory = "out" }),
+            NullLogger<InvestigationAgent>.Instance);
     }
 
     [Fact]

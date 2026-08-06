@@ -29,6 +29,15 @@ public sealed class InvestigationOptions
     // Deliberately omitted rather than shipped unverified. The run currently uses the
     // model's default effort. Wire and verify this against a real key before tuning.
 
+    /// <summary>
+    /// Output token budget. This must be generous: on current models thinking is on by
+    /// default and <c>max_tokens</c> caps thinking <b>plus</b> the response text — so a
+    /// tight budget is spent reasoning and the answer comes back empty, which surfaces as
+    /// an unparseable response rather than anything that mentions tokens.
+    /// </summary>
+    [Range(1000, 64000)]
+    public int MaxOutputTokens { get; set; } = 16000;
+
     /// <summary>Where <c>investigation.md</c> is written.</summary>
     [Required(AllowEmptyStrings = false)]
     public string OutputDirectory { get; set; } = "output/investigations";
