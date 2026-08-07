@@ -24,4 +24,11 @@ public sealed class PipelineOptions
     /// change what happens unless it is asked for.
     /// </summary>
     public bool GenerateFix { get; set; }
+
+    /// <summary>
+    /// Build and test the generated fix, repairing it on failure, then review the result.
+    /// Requires <see cref="GenerateFix"/>. Off by default, on the same principle: each
+    /// phase stays dormant until asked for, and the previous one remains the baseline.
+    /// </summary>
+    public bool VerifyFix { get; set; }
 }

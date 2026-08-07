@@ -50,7 +50,7 @@ public class CoderAgentTests : IDisposable
             new FakeChatClient(json),
             retriever,
             new DiffGenerator(NullLogger<DiffGenerator>.Instance),
-            Options.Create(new InvestigationOptions { Model = "claude-opus-5", OutputDirectory = "out" }),
+            Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
             NullLogger<CoderAgent>.Instance);
     }
 

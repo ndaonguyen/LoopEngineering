@@ -44,7 +44,7 @@ public class InvestigationAgentTests : IDisposable
         return new InvestigationAgent(
             chat,
             retriever,
-            Options.Create(new InvestigationOptions { Model = "claude-opus-5", OutputDirectory = "out" }),
+            Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
             NullLogger<InvestigationAgent>.Instance);
     }
 

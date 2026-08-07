@@ -3,6 +3,8 @@ using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Planning;
 using Loop.Engine.Agents.Retrieval;
+using Loop.Engine.Agents.Review;
+using Loop.Engine.Agents.Verification;
 using Loop.Engine.Core.Abstractions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -32,25 +34,49 @@ public static class DependencyInjection
 
         services.AddSingleton<FileRetriever>();
 
+        // Two clients, because the stages have genuinely different demands. The default
+        // serves the Coder, Reviewer, and repair loop; the "reasoning" key serves
+        // Investigation and Planning, where a wrong answer poisons everything downstream.
+        // When ReasoningModel is unset both resolve to the same model and this costs
+        // nothing but an extra registration.
         services.AddSingleton<IChatClient>(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<InvestigationOptions>>().Value;
+            CreateClient(sp, o => o.Model));
 
-            // An empty ApiKey is the normal path: the SDK reads ANTHROPIC_API_KEY itself.
-            var client = options.UsesEnvironmentApiKey
-                ? new AnthropicClient()
-                : new AnthropicClient { ApiKey = options.ApiKey.Trim() };
+        services.AddKeyedSingleton<IChatClient>(ReasoningClientKey, (sp, _) =>
+            CreateClient(sp, o => o.EffectiveReasoningModel));
 
-            return client.AsIChatClient(options.Model);
-        });
+        services
+            .AddOptions<VerificationOptions>()
+            .Bind(configuration.GetSection(VerificationOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         services.AddSingleton<DiffGenerator>();
+        services.AddSingleton<FixVerifier>();
 
         services.AddSingleton<IInvestigator, InvestigationAgent>();
         services.AddSingleton<IPlanner, PlannerAgent>();
         services.AddSingleton<ICoder, CoderAgent>();
+        services.AddSingleton<IBuildRunner, DotnetBuildRunner>();
+        services.AddSingleton<IReviewer, ReviewerAgent>();
 
         return services;
+    }
+
+    /// <summary>Service key for the client used by Investigation and Planning.</summary>
+    public const string ReasoningClientKey = "reasoning";
+
+    private static IChatClient CreateClient(
+        IServiceProvider services, Func<InvestigationOptions, string> selectModel)
+    {
+        var options = services.GetRequiredService<IOptions<InvestigationOptions>>().Value;
+
+        // An empty ApiKey is the normal path: the SDK reads ANTHROPIC_API_KEY itself.
+        var client = options.UsesEnvironmentApiKey
+            ? new AnthropicClient()
+            : new AnthropicClient { ApiKey = options.ApiKey.Trim() };
+
+        return client.AsIChatClient(selectModel(options));
     }
 
     /// <summary>

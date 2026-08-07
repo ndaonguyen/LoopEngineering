@@ -7,8 +7,26 @@ public sealed class InvestigationOptions
 {
     public const string SectionName = "Anthropic";
 
+    /// <summary>
+    /// The workhorse model: Coder, Reviewer, and the repair loop. These stages mostly
+    /// transcribe a decision that has already been made, so they do not need the most
+    /// capable model available. Override with <c>--Anthropic:Model=…</c>.
+    /// </summary>
     [Required(AllowEmptyStrings = false)]
-    public string Model { get; set; } = "claude-opus-5";
+    public string Model { get; set; } = "claude-sonnet-5";
+
+    /// <summary>
+    /// The model for the stages that actually decide things — Investigation and Planning.
+    ///
+    /// Diagnosis is where being wrong is most expensive: every later stage inherits the
+    /// file list and the plan, and no amount of coding skill recovers from investigating
+    /// the wrong file. Leave empty to use <see cref="Model"/> everywhere.
+    /// </summary>
+    public string ReasoningModel { get; set; } = string.Empty;
+
+    /// <summary>The reasoning model if one is configured, otherwise the workhorse.</summary>
+    public string EffectiveReasoningModel =>
+        string.IsNullOrWhiteSpace(ReasoningModel) ? Model : ReasoningModel.Trim();
 
     /// <summary>
     /// API key. Leave empty to let the SDK read <c>ANTHROPIC_API_KEY</c> from the

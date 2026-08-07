@@ -29,7 +29,7 @@ public class PlannerAgentTests
 
     private static PlannerAgent AgentReturning(string json) => new(
         new FakeChatClient(json),
-        Options.Create(new InvestigationOptions { Model = "claude-opus-5", OutputDirectory = "out" }),
+        Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
         NullLogger<PlannerAgent>.Instance);
 
     [Fact]
