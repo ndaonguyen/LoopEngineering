@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
@@ -50,7 +51,7 @@ public class CoderAgentTests : IDisposable
             new FakeChatClient(json),
             retriever,
             new DiffGenerator(NullLogger<DiffGenerator>.Instance),
-            Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
+            Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
             NullLogger<CoderAgent>.Instance);
     }
 

@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Review;
@@ -32,7 +33,7 @@ public class ReviewerAgentTests
 
     private static ReviewerAgent AgentReturning(string json) => new(
         new FakeChatClient(json),
-        Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
+        Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
         NullLogger<ReviewerAgent>.Instance);
 
     [Fact]
@@ -77,7 +78,7 @@ public class ReviewerAgentTests
         var chat = new FakeChatClient("""{"findings": [{"category":"x","severity":"low","detail":"y"}]}""");
         var agent = new ReviewerAgent(
             chat,
-            Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
+            Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
             NullLogger<ReviewerAgent>.Instance);
 
         var report = await agent.ReviewAsync(AnIssue(), "");

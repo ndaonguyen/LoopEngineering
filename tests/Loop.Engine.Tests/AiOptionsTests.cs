@@ -1,15 +1,16 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Investigation;
 using Xunit;
 
 namespace Loop.Engine.Tests;
 
-public class InvestigationOptionsTests
+public class AiOptionsTests
 {
     [Fact]
     public void EffectiveReasoningModel_uses_the_reasoning_model_when_configured()
     {
-        var options = new InvestigationOptions
+        var options = new AiOptions
         {
             Model = "claude-sonnet-5",
             ReasoningModel = "claude-opus-5",
@@ -23,7 +24,7 @@ public class InvestigationOptionsTests
     [InlineData("   ")]
     public void EffectiveReasoningModel_falls_back_to_the_workhorse_model(string reasoningModel)
     {
-        var options = new InvestigationOptions
+        var options = new AiOptions
         {
             Model = "claude-sonnet-5",
             ReasoningModel = reasoningModel,
@@ -37,7 +38,7 @@ public class InvestigationOptionsTests
     [Fact]
     public void EffectiveReasoningModel_trims_whitespace()
     {
-        var options = new InvestigationOptions
+        var options = new AiOptions
         {
             Model = "claude-sonnet-5",
             ReasoningModel = "  claude-opus-5  ",

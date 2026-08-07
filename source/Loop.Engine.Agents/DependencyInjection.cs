@@ -1,4 +1,4 @@
-using Anthropic;
+using Loop.Engine.Agents.Providers;
 using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Planning;
@@ -19,11 +19,12 @@ public static class DependencyInjection
         this IServiceCollection services, IConfiguration configuration)
     {
         services
-            .AddOptions<InvestigationOptions>()
-            .Bind(configuration.GetSection(InvestigationOptions.SectionName))
+            .AddOptions<AiOptions>()
+            .Bind(configuration.GetSection(AiOptions.SectionName))
             .ValidateDataAnnotations()
-            .Validate(o => ResolveApiKey(o) is not null, ApiKeyMissingMessage)
-            .Validate(HasAnthropicKeyPrefix, WrongKeyKindMessage)
+            .Validate(HasResolvableProviders, UnknownModelMessage)
+            .Validate(HasKeyForEveryProvider, MissingKeyMessage)
+            .Validate(HasPlausibleKeyShapes, WrongKeyKindMessage)
             .ValidateOnStart();
 
         services
@@ -67,46 +68,77 @@ public static class DependencyInjection
     public const string ReasoningClientKey = "reasoning";
 
     private static IChatClient CreateClient(
-        IServiceProvider services, Func<InvestigationOptions, string> selectModel)
+        IServiceProvider services, Func<AiOptions, string> selectModel)
     {
-        var options = services.GetRequiredService<IOptions<InvestigationOptions>>().Value;
-
-        // An empty ApiKey is the normal path: the SDK reads ANTHROPIC_API_KEY itself.
-        var client = options.UsesEnvironmentApiKey
-            ? new AnthropicClient()
-            : new AnthropicClient { ApiKey = options.ApiKey.Trim() };
-
-        return client.AsIChatClient(selectModel(options));
+        var options = services.GetRequiredService<IOptions<AiOptions>>().Value;
+        return ChatClientFactory.Create(selectModel(options), options);
     }
+
+    /// <summary>Both configured ids must belong to a provider we can build a client for.</summary>
+    private static bool HasResolvableProviders(AiOptions options) =>
+        ModelProviders.TryResolve(options.Model, out _)
+        && ModelProviders.TryResolve(options.EffectiveReasoningModel, out _);
 
     /// <summary>
-    /// The credential actually in force — config value if set, otherwise the environment
-    /// variable the SDK reads. Validating only the config value would let startup pass
-    /// while the key the client really uses is missing, surfacing later as a puzzling 401.
+    /// Every provider named by a configured model needs a key — the configured value or
+    /// its environment variable. Checking only the config value would let startup pass
+    /// while the credential actually used is missing, surfacing later as a puzzling 401.
     /// </summary>
-    private static string? ResolveApiKey(InvestigationOptions options)
-    {
-        var key = options.UsesEnvironmentApiKey
-            ? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
-            : options.ApiKey;
-
-        return string.IsNullOrWhiteSpace(key) ? null : key.Trim();
-    }
+    private static bool HasKeyForEveryProvider(AiOptions options) =>
+        !HasResolvableProviders(options)
+        || options.RequiredProviders().All(p => options.ResolveKey(p) is not null);
 
     /// <summary>
     /// Catch a wrong-vendor key at startup rather than after a network round trip. An
-    /// OpenAI key (<c>sk-proj-…</c>) in this slot otherwise fails as an opaque
-    /// "invalid x-api-key" buried in a poll failure, several layers from the real cause.
+    /// OpenAI key in the Anthropic slot otherwise fails as an opaque "invalid x-api-key"
+    /// buried in a poll failure, several layers from the typo that caused it — which is
+    /// exactly how an afternoon gets lost.
     /// </summary>
-    private static bool HasAnthropicKeyPrefix(InvestigationOptions options) =>
-        ResolveApiKey(options) is not { } key || key.StartsWith("sk-ant-", StringComparison.Ordinal);
+    private static bool HasPlausibleKeyShapes(AiOptions options)
+    {
+        if (!HasResolvableProviders(options))
+        {
+            return true;
+        }
 
-    private const string ApiKeyMissingMessage =
-        "No Anthropic credential found. Set the ANTHROPIC_API_KEY environment variable, " +
-        "or supply Anthropic:ApiKey via user-secrets. Never commit the key.";
+        foreach (var provider in options.RequiredProviders())
+        {
+            if (options.ResolveKey(provider) is not { } key)
+            {
+                continue;
+            }
+
+            var valid = provider switch
+            {
+                // Anthropic is specific; OpenAI issues several shapes (sk-, sk-proj-, …)
+                // so only the family prefix is worth asserting.
+                ModelProvider.Anthropic => key.StartsWith("sk-ant-", StringComparison.Ordinal),
+                ModelProvider.OpenAi => key.StartsWith("sk-", StringComparison.Ordinal)
+                                        && !key.StartsWith("sk-ant-", StringComparison.Ordinal),
+                _ => true,
+            };
+
+            if (!valid)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private const string UnknownModelMessage =
+        "Ai:Model or Ai:ReasoningModel names a model whose provider cannot be determined. " +
+        "Anthropic ids start with 'claude-'; OpenAI ids start with 'gpt-', 'o1', 'o3', " +
+        "'o4', or 'chatgpt'.";
+
+    private const string MissingKeyMessage =
+        "No credential found for a configured provider. Set ANTHROPIC_API_KEY / " +
+        "OPENAI_API_KEY in the environment, or supply Ai:AnthropicApiKey / Ai:OpenAiApiKey " +
+        "via user-secrets. Never commit a key.";
 
     private const string WrongKeyKindMessage =
-        "The configured Anthropic key does not start with 'sk-ant-'. Anthropic keys look " +
-        "like 'sk-ant-api03-…' — an OpenAI key ('sk-proj-…') will not work. Get one from " +
-        "console.anthropic.com -> Settings -> API keys.";
+        "A configured key does not match its provider. Anthropic keys start with " +
+        "'sk-ant-api03-…'; OpenAI keys start with 'sk-' (commonly 'sk-proj-…'). " +
+        "Using one in the other's slot fails as an opaque authentication error at runtime.";
 }

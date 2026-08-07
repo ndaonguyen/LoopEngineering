@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Planning;
@@ -29,7 +30,7 @@ public class PlannerAgentTests
 
     private static PlannerAgent AgentReturning(string json) => new(
         new FakeChatClient(json),
-        Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
+        Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
         NullLogger<PlannerAgent>.Instance);
 
     [Fact]

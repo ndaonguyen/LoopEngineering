@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Json;
@@ -21,14 +22,14 @@ public sealed class FixVerifier
     private readonly IChatClient _chat;
     private readonly IBuildRunner _runner;
     private readonly VerificationOptions _options;
-    private readonly InvestigationOptions _model;
+    private readonly AiOptions _model;
     private readonly ILogger<FixVerifier> _logger;
 
     public FixVerifier(
         IChatClient chat,
         IBuildRunner runner,
         IOptions<VerificationOptions> options,
-        IOptions<InvestigationOptions> model,
+        IOptions<AiOptions> model,
         ILogger<FixVerifier> logger)
     {
         _chat = chat;

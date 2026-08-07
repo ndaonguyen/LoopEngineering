@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Json;
 using Loop.Engine.Agents.Retrieval;
@@ -21,14 +22,14 @@ public sealed class CoderAgent : ICoder
     private readonly IChatClient _chat;
     private readonly FileRetriever _retriever;
     private readonly DiffGenerator _diff;
-    private readonly InvestigationOptions _options;
+    private readonly AiOptions _options;
     private readonly ILogger<CoderAgent> _logger;
 
     public CoderAgent(
         IChatClient chat,
         FileRetriever retriever,
         DiffGenerator diff,
-        IOptions<InvestigationOptions> options,
+        IOptions<AiOptions> options,
         ILogger<CoderAgent> logger)
     {
         _chat = chat;

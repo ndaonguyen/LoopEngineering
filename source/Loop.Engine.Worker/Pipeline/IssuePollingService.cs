@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using System.Text;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Retrieval;
@@ -30,7 +31,7 @@ public sealed class IssuePollingService : BackgroundService
     private readonly IReviewer _reviewer;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly GitHubOptions _gitHub;
-    private readonly InvestigationOptions _investigation;
+    private readonly AiOptions _investigation;
     private readonly RepositoryOptions _repository;
     private readonly PipelineOptions _pipeline;
     private readonly ILogger<IssuePollingService> _logger;
@@ -44,7 +45,7 @@ public sealed class IssuePollingService : BackgroundService
         IReviewer reviewer,
         IHostApplicationLifetime lifetime,
         IOptions<GitHubOptions> gitHub,
-        IOptions<InvestigationOptions> investigation,
+        IOptions<AiOptions> investigation,
         IOptions<RepositoryOptions> repository,
         IOptions<PipelineOptions> pipeline,
         ILogger<IssuePollingService> logger)

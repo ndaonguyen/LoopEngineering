@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Json;
 using Loop.Engine.Core.Abstractions;
@@ -13,12 +14,12 @@ namespace Loop.Engine.Agents.Planning;
 public sealed class PlannerAgent : IPlanner
 {
     private readonly IChatClient _chat;
-    private readonly InvestigationOptions _options;
+    private readonly AiOptions _options;
     private readonly ILogger<PlannerAgent> _logger;
 
     public PlannerAgent(
         [FromKeyedServices(DependencyInjection.ReasoningClientKey)] IChatClient chat,
-        IOptions<InvestigationOptions> options,
+        IOptions<AiOptions> options,
         ILogger<PlannerAgent> logger)
     {
         _chat = chat;

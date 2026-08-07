@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Verification;
@@ -35,7 +36,7 @@ public class FixVerifierTests : IDisposable
         new FakeChatClient(repairJson),
         runner,
         Options.Create(new VerificationOptions { MaxAttempts = maxAttempts, TestProject = null }),
-        Options.Create(new InvestigationOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
+        Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
         NullLogger<FixVerifier>.Instance);
 
     // A plain temp directory stands in for the worktree: these tests exercise the retry
