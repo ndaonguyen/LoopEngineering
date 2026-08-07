@@ -64,4 +64,60 @@ public static class BuildOutputParser
     /// </summary>
     public static bool Succeeded(string output, int exitCode) =>
         exitCode == 0 && ParseErrors(output).Count == 0 && !FailureSummary.IsMatch(output);
+
+    // C:\path\to\File.cs(41,29): error CS7036: …
+    private static readonly Regex ErrorFile = new(
+        @"^\s*(?<file>(?:[A-Za-z]:\\|/)[^(\r\n]+?)\(\d+,\d+\):\s*error\s",
+        RegexOptions.Compiled | RegexOptions.Multiline);
+
+    /// <summary>
+    /// Files the compiler itself named, relative to <paramref name="workingDirectory"/>.
+    ///
+    /// This is the only sanctioned way the Coder's allow-list may grow. A file the build
+    /// points at has earned its place by evidence — csc stating a fact, not the model
+    /// speculating — so a signature change can finish repairing its own call sites without
+    /// reopening the door to wandering the repository.
+    ///
+    /// Paths come from the error text rather than from the model, which also closes the
+    /// obvious hole: a file cannot be nominated by inventing a plausible path for it.
+    /// </summary>
+    public static IReadOnlyList<string> ParseErrorFiles(string output, string workingDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(output) || string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return [];
+        }
+
+        var root = Path.GetFullPath(workingDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        var files = new List<string>();
+
+        foreach (Match m in ErrorFile.Matches(output))
+        {
+            string full;
+
+            try
+            {
+                full = Path.GetFullPath(m.Groups["file"].Value.Trim());
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                // Outside the tree being built — an SDK or package file, not ours to touch.
+                continue;
+            }
+
+            var relative = Path.GetRelativePath(root, full).Replace('\\', '/');
+
+            if (!files.Contains(relative, StringComparer.OrdinalIgnoreCase))
+            {
+                files.Add(relative);
+            }
+        }
+
+        return files;
+    }
 }
