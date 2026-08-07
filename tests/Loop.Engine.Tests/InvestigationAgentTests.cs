@@ -1,3 +1,4 @@
+using Loop.Engine.Agents.Providers;
 using AwesomeAssertions;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Retrieval;
@@ -44,7 +45,7 @@ public class InvestigationAgentTests : IDisposable
         return new InvestigationAgent(
             chat,
             retriever,
-            Options.Create(new InvestigationOptions { Model = "claude-opus-5", OutputDirectory = "out" }),
+            Options.Create(new AiOptions { Model = "claude-sonnet-5", OutputDirectory = "out" }),
             NullLogger<InvestigationAgent>.Instance);
     }
 

@@ -16,4 +16,19 @@ public sealed class PipelineOptions
 
     /// <summary>Stop after the first tick. Useful for a one-shot run rather than a service.</summary>
     public bool RunOnce { get; set; }
+
+    /// <summary>
+    /// Run the Planner and Coder after investigating, and write a <c>.diff</c>.
+    ///
+    /// Off by default: Phase 2 is the working baseline, and adding a phase should not
+    /// change what happens unless it is asked for.
+    /// </summary>
+    public bool GenerateFix { get; set; }
+
+    /// <summary>
+    /// Build and test the generated fix, repairing it on failure, then review the result.
+    /// Requires <see cref="GenerateFix"/>. Off by default, on the same principle: each
+    /// phase stays dormant until asked for, and the previous one remains the baseline.
+    /// </summary>
+    public bool VerifyFix { get; set; }
 }

@@ -1,4 +1,8 @@
+using Loop.Engine.Agents.Providers;
+using System.Text;
 using Loop.Engine.Agents.Investigation;
+using Loop.Engine.Agents.Retrieval;
+using Loop.Engine.Agents.Verification;
 using Loop.Engine.Core.Abstractions;
 using Loop.Engine.Core.Model;
 using Loop.Engine.GitHub;
@@ -9,37 +13,53 @@ using Microsoft.Extensions.Options;
 namespace Loop.Engine.Worker.Pipeline;
 
 /// <summary>
-/// The scheduler. Polls GitHub on an interval, prints what it finds, and investigates the
-/// oldest open issue.
+/// The scheduler. Polls GitHub on an interval, prints what it finds, investigates one
+/// issue, and — when <see cref="PipelineOptions.GenerateFix"/> is set — plans and writes a
+/// fix diff for it.
 ///
-/// Phase 2 stops at analysis on purpose — no plan, no code, no PR. One issue per tick:
-/// concurrency belongs to a later phase, and adding it here would only make the first
-/// failures harder to read.
+/// It stops at the diff. No branch, no commit, no PR, and no build: verifying the fix is
+/// Phase 4 and publishing it is Phase 5. One issue per tick, because concurrent branches
+/// racing each other would only make the first failures harder to read.
 /// </summary>
 public sealed class IssuePollingService : BackgroundService
 {
     private readonly IIssueSource _issues;
     private readonly IInvestigator _investigator;
+    private readonly IPlanner _planner;
+    private readonly ICoder _coder;
+    private readonly FixVerifier _verifier;
+    private readonly IReviewer _reviewer;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly GitHubOptions _gitHub;
-    private readonly InvestigationOptions _investigation;
+    private readonly AiOptions _investigation;
+    private readonly RepositoryOptions _repository;
     private readonly PipelineOptions _pipeline;
     private readonly ILogger<IssuePollingService> _logger;
 
     public IssuePollingService(
         IIssueSource issues,
         IInvestigator investigator,
+        IPlanner planner,
+        ICoder coder,
+        FixVerifier verifier,
+        IReviewer reviewer,
         IHostApplicationLifetime lifetime,
         IOptions<GitHubOptions> gitHub,
-        IOptions<InvestigationOptions> investigation,
+        IOptions<AiOptions> investigation,
+        IOptions<RepositoryOptions> repository,
         IOptions<PipelineOptions> pipeline,
         ILogger<IssuePollingService> logger)
     {
         _issues = issues;
         _investigator = investigator;
+        _planner = planner;
+        _coder = coder;
+        _verifier = verifier;
+        _reviewer = reviewer;
         _lifetime = lifetime;
         _gitHub = gitHub.Value;
         _investigation = investigation.Value;
+        _repository = repository.Value;
         _pipeline = pipeline.Value;
         _logger = logger;
     }
@@ -118,6 +138,134 @@ public sealed class IssuePollingService : BackgroundService
         Console.WriteLine();
         Console.WriteLine($"Investigated #{issue.Number} -> {path}");
         Console.WriteLine($"Affected files: {analysis.AffectedFiles.Count}");
+
+        if (_pipeline.GenerateFix)
+        {
+            await GenerateFixAsync(issue, analysis, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Phase 3: plan, then code, then write the diff. Stops there — no branch, no commit,
+    /// no PR, and no build. Verifying the diff is Phase 4's job.
+    /// </summary>
+    private async Task GenerateFixAsync(Issue issue, AnalysisResult analysis, CancellationToken cancellationToken)
+    {
+        var plan = await _planner.PlanAsync(issue, analysis, cancellationToken);
+
+        Console.WriteLine();
+        Console.WriteLine($"Plan for #{issue.Number}:");
+        foreach (var step in plan.Steps)
+        {
+            Console.WriteLine($"  {step.Order}. {step.Description}");
+        }
+
+        var changes = await _coder.WriteCodeAsync(issue, analysis, plan, cancellationToken);
+
+        if (!changes.HasChanges)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Coder produced no textual change for #{issue.Number}.");
+            return;
+        }
+
+        var diffPath = await WriteDiffAsync(issue, changes.UnifiedDiff, cancellationToken);
+
+        Console.WriteLine();
+        Console.WriteLine($"Wrote fix for #{issue.Number} -> {diffPath}");
+        Console.WriteLine($"Files changed: {changes.Edits.Count}");
+
+        if (_pipeline.VerifyFix)
+        {
+            await VerifyAndReviewAsync(issue, changes, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Phase 4: build, test, repair, review. The first stage that can prove a fix wrong
+    /// rather than merely reasoning about it.
+    /// </summary>
+    private async Task VerifyAndReviewAsync(
+        Issue issue, CodeChangeSet changes, CancellationToken cancellationToken)
+    {
+        using var worktree = FixWorktree.Create(_repository.RootPath, _logger);
+
+        var verification = await _verifier.VerifyAsync(issue, changes.Edits, worktree, cancellationToken);
+
+        Console.WriteLine();
+        Console.WriteLine(verification.StuckReport());
+
+        if (!verification.Succeeded)
+        {
+            // Stop here deliberately. A review of a fix that does not build would describe
+            // problems the compiler already named, more vaguely.
+            return;
+        }
+
+        var review = await _reviewer.ReviewAsync(issue, changes.UnifiedDiff, cancellationToken);
+        var reviewPath = await WriteReviewAsync(issue, verification, review, cancellationToken);
+
+        Console.WriteLine($"Review for #{issue.Number} -> {reviewPath} ({review.Findings.Count} finding(s))");
+    }
+
+    private async Task<string> WriteReviewAsync(
+        Issue issue, VerificationResult verification, ReviewReport review, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetFullPath(_investigation.OutputDirectory);
+        Directory.CreateDirectory(directory);
+
+        var markdown = new StringBuilder();
+        markdown.AppendLine($"# Review — #{issue.Number}: {issue.Title}");
+        markdown.AppendLine();
+        markdown.AppendLine($"Verified after {verification.Attempts} attempt(s).");
+        markdown.AppendLine();
+
+        if (verification.Hypotheses.Count > 0)
+        {
+            markdown.AppendLine("## Repair history");
+            markdown.AppendLine();
+            foreach (var (hypothesis, index) in verification.Hypotheses.Select((h, i) => (h, i + 1)))
+            {
+                markdown.AppendLine($"{index}. {hypothesis}");
+            }
+            markdown.AppendLine();
+        }
+
+        markdown.AppendLine("## Findings");
+        markdown.AppendLine();
+
+        if (review.Findings.Count == 0)
+        {
+            markdown.AppendLine("_None. A small, correct diff is allowed to have nothing wrong with it._");
+        }
+        else
+        {
+            foreach (var finding in review.Findings)
+            {
+                markdown.AppendLine($"### {finding.Category} — {finding.Severity}");
+                markdown.AppendLine();
+                markdown.AppendLine(finding.Detail);
+                markdown.AppendLine();
+            }
+        }
+
+        var path = Path.Combine(directory, $"review-{issue.Number}.md");
+        await File.WriteAllTextAsync(path, markdown.ToString(), cancellationToken);
+
+        _logger.LogInformation("Wrote review for #{Number} to {Path}.", issue.Number, path);
+        return path;
+    }
+
+    private async Task<string> WriteDiffAsync(Issue issue, string diff, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetFullPath(_investigation.OutputDirectory);
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"fix-{issue.Number}.diff");
+        await File.WriteAllTextAsync(path, diff, cancellationToken);
+
+        _logger.LogInformation("Wrote fix diff for #{Number} to {Path}.", issue.Number, path);
+        return path;
     }
 
     private async Task<string> WriteReportAsync(

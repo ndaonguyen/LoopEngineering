@@ -85,6 +85,42 @@ public sealed class FileRetriever
         return results;
     }
 
+    /// <summary>
+    /// Reads a known list of paths. Not a search: the Coder is handed the investigation's
+    /// findings and reads exactly those, so nothing here widens what it can see. Paths
+    /// that escape the repository root are refused rather than skipped — they should be
+    /// impossible, and quietly ignoring an impossible input hides the bug that produced it.
+    /// </summary>
+    public IReadOnlyList<RetrievedFile> ReadFiles(IReadOnlyList<string> relativePaths)
+    {
+        var root = Path.GetFullPath(_options.RootPath);
+        var files = new List<RetrievedFile>();
+
+        foreach (var relative in relativePaths)
+        {
+            var normalised = relative.Replace('\\', '/').Trim();
+            var full = Path.GetFullPath(Path.Combine(root, normalised.Replace('/', Path.DirectorySeparatorChar)));
+
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to read '{relative}': it resolves outside the repository root.");
+            }
+
+            if (!File.Exists(full))
+            {
+                _logger.LogWarning("Skipping '{Path}' — it no longer exists under {Root}.", normalised, root);
+                continue;
+            }
+
+            // Whole file, not the capped excerpt used for retrieval: the Coder is rewriting
+            // it, and a truncated original would be silently rewritten as a truncated file.
+            files.Add(new RetrievedFile(normalised, File.ReadAllText(full), [normalised]));
+        }
+
+        return files;
+    }
+
     private string ReadCapped(string path, out int lineCount)
     {
         var lines = File.ReadLines(path).Take(_options.MaxLinesPerFile).ToList();
