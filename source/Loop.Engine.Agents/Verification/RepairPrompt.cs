@@ -23,15 +23,17 @@ public static class RepairPrompt
 
         # Output format
 
-        Reply with a single JSON object and nothing else. No prose outside it, no markdown
-        fence. The output is parsed by a program.
+        Reply with exactly these three things and nothing else:
 
-        {
-          "hypothesis": "what you now believe was wrong, in one sentence",
-          "edits": [
-            { "path": "the target file", "contents": "the entire new file" }
-          ]
-        }
+        HYPOTHESIS: what you now believe was wrong, in one sentence
+        FILE: the/target/path.cs
+        ```csharp
+        the entire corrected file, verbatim
+        ```
+
+        Write the code exactly as it should appear on disk. Do not escape anything: a
+        backslash is a backslash, a quote is a quote. `Replace('\\', '/')` is written
+        precisely like that.
         """;
 
     public static string Build(

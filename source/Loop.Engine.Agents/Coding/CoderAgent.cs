@@ -111,23 +111,21 @@ public sealed class CoderAgent : ICoder
         var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
         var response = await _chat.GetResponseAsync(messages, options, cancellationToken);
 
-        if (!TolerantJson.TryParse<CodeEditSetDto>(response.Text, out var dto))
+        if (!CodeReplyParser.TryParse(response.Text, out var edit))
         {
             _logger.LogWarning(
                 "No parseable edit for '{Target}'. FinishReason={Reason}, TextLength={Length}, " +
                 "MaxOutputTokens={Max}. FinishReason=Length means the budget was spent on " +
-                "thinking plus the file body — raise Anthropic:MaxOutputTokens.",
+                "thinking plus the file body — raise Ai:MaxOutputTokens.",
                 target, response.FinishReason?.ToString() ?? "none",
                 response.Text.Length, _options.MaxOutputTokens);
             return null;
         }
 
-        var edit = dto.Edits.FirstOrDefault(e =>
-            string.Equals(e.Path.Replace('\\', '/').Trim(), target, StringComparison.OrdinalIgnoreCase));
-
-        if (edit is null)
+        if (!string.Equals(edit.Path, target, StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogInformation("Model returned no change for '{Target}'.", target);
+            _logger.LogInformation(
+                "Model returned '{Returned}' when asked for '{Target}' — skipping.", edit.Path, target);
             return null;
         }
 

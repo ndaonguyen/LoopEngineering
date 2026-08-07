@@ -29,17 +29,18 @@ public static class CoderPrompt
 
         # Output format
 
-        Reply with a single JSON object and nothing else. No prose before or after it, no
-        markdown code fence, no <edits> wrapper. The output is parsed by a program.
+        Reply with exactly two things and nothing else — no commentary, no explanation:
 
-        {
-          "edits": [
-            { "path": "the target file", "contents": "the entire new file" }
-          ]
-        }
+        FILE: the/target/path.cs
+        ```csharp
+        the entire new file, verbatim
+        ```
 
-        JSON-escape the file contents properly. If the target file needs no change, return
-        an empty `edits` array rather than reproducing it unchanged.
+        Write the code exactly as it should appear on disk. Do not escape anything: a
+        backslash is a backslash, a quote is a quote. `Replace('\\', '/')` is written
+        precisely like that.
+
+        If the target file needs no change, reply with the single word NO_CHANGE.
         """;
 
     public static string BuildUserMessage(

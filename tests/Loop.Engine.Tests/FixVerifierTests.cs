@@ -27,10 +27,9 @@ public class FixVerifierTests : IDisposable
     private static IReadOnlyList<CodeEdit> AnEdit() =>
         [new CodeEdit("src/A.cs", "class A { int x; }\n")];
 
-    /// <summary>A repair reply that parses, with a fresh hypothesis each time.</summary>
-    private static string RepairJson(string hypothesis) => $$"""
-        {"hypothesis": "{{hypothesis}}", "edits": [{"path": "src/A.cs", "contents": "class A { int y; }\n"}]}
-        """;
+    /// <summary>A repair reply in the fenced format the prompt asks for.</summary>
+    private static string RepairJson(string hypothesis) =>
+        $"HYPOTHESIS: {hypothesis}\nFILE: src/A.cs\n```csharp\nclass A {{ int y; }}\n```";
 
     private FixVerifier Verifier(FakeBuildRunner runner, string repairJson, int maxAttempts = 5) => new(
         new FakeChatClient(repairJson),

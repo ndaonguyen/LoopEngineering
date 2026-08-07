@@ -126,7 +126,7 @@ public sealed class FixVerifier
         var options = new ChatOptions { MaxOutputTokens = _model.MaxOutputTokens };
         var response = await _chat.GetResponseAsync(messages, options, cancellationToken);
 
-        if (!TolerantJson.TryParse<RepairDto>(response.Text, out var dto))
+        if (!CodeReplyParser.TryParse(response.Text, out var edit))
         {
             _logger.LogWarning(
                 "No parseable repair. FinishReason={Reason}, TextLength={Length}, MaxOutputTokens={Max}.",
@@ -134,12 +134,10 @@ public sealed class FixVerifier
             return null;
         }
 
-        var edit = dto.Edits.FirstOrDefault(e =>
-            string.Equals(e.Path.Replace('\\', '/').Trim(), target.RelativePath, StringComparison.OrdinalIgnoreCase));
-
-        if (edit is null)
+        if (!string.Equals(edit.Path, target.RelativePath, StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogWarning("Repair returned no edit for the target '{Target}'.", target.RelativePath);
+            _logger.LogWarning(
+                "Repair returned '{Returned}' when asked for '{Target}'.", edit.Path, target.RelativePath);
             return null;
         }
 
@@ -151,10 +149,10 @@ public sealed class FixVerifier
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.Hypothesis))
+        if (!string.IsNullOrWhiteSpace(edit.Hypothesis))
         {
-            hypotheses.Add(dto.Hypothesis.Trim());
-            _logger.LogInformation("Attempt {Attempt} hypothesis: {Hypothesis}", attempt, dto.Hypothesis.Trim());
+            hypotheses.Add(edit.Hypothesis);
+            _logger.LogInformation("Attempt {Attempt} hypothesis: {Hypothesis}", attempt, edit.Hypothesis);
         }
 
         return current

@@ -17,8 +17,13 @@ public sealed class AiOptions
     /// The workhorse model: Coder, Reviewer, and the repair loop. These stages mostly
     /// transcribe a decision already made, so they need not be the most capable model.
     /// </summary>
+    /// <remarks>
+    /// Kept in step with <c>appsettings.json</c> on purpose. A default that disagrees with
+    /// the shipped configuration only shows up when the section is missing — the one
+    /// moment you least want a silent switch to a different provider and a different bill.
+    /// </remarks>
     [Required(AllowEmptyStrings = false)]
-    public string Model { get; set; } = "claude-sonnet-5";
+    public string Model { get; set; } = "gpt-4o-mini";
 
     /// <summary>
     /// The model for the stages that decide things — Investigation and Planning.
