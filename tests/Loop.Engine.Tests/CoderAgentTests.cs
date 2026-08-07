@@ -41,6 +41,10 @@ public class CoderAgentTests : IDisposable
         File.WriteAllText(full, contents);
     }
 
+    /// <summary>A reply in the fenced format the Coder's prompt asks for.</summary>
+    private static string Reply(string path, string contents) =>
+        $"FILE: {path}\n```csharp\n{contents}\n```";
+
     private CoderAgent AgentReturning(string json)
     {
         var retriever = new FileRetriever(
@@ -59,9 +63,7 @@ public class CoderAgentTests : IDisposable
     public async Task WriteCodeAsync_returns_the_edit_and_a_unified_diff()
     {
         GivenFile("src/A.cs", "class A { }\n");
-        var agent = AgentReturning("""
-            {"edits": [{"path": "src/A.cs", "contents": "class A { int x; }\n"}]}
-            """);
+        var agent = AgentReturning(Reply("src/A.cs", "class A { int x; }"));
 
         var changes = await agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/A.cs"), APlan("src/A.cs"));
 
@@ -76,28 +78,24 @@ public class CoderAgentTests : IDisposable
         GivenFile("src/A.cs", "class A { }\n");
         GivenFile("src/Secret.cs", "class Secret { }\n");
 
-        var agent = AgentReturning("""
-            {"edits": [
-              {"path": "src/A.cs", "contents": "class A { int x; }\n"},
-              {"path": "src/Secret.cs", "contents": "class Secret { int pwned; }\n"}
-            ]}
-            """);
+        // The model answers with a file it was not asked for. Secret.cs exists and is
+        // readable — it is excluded because the investigation never named it, which is the
+        // whole guarantee this phase rests on.
+        var agent = AgentReturning(Reply("src/Secret.cs", "class Secret { int pwned; }"));
 
-        var changes = await agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/A.cs"), APlan("src/A.cs"));
+        var act = () => agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/A.cs"), APlan("src/A.cs"));
 
-        // Secret.cs exists and is readable — it is excluded because the investigation
-        // never named it, which is the whole guarantee this phase rests on.
-        changes.Edits.Should().ContainSingle().Which.RelativePath.Should().Be("src/A.cs");
-        changes.UnifiedDiff.Should().NotContain("pwned");
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .Which.Message.Should().Contain("No usable edit was produced");
+
+        File.ReadAllText(Path.Combine(_repoRoot, "src", "Secret.cs")).Should().NotContain("pwned");
     }
 
     [Fact]
     public async Task WriteCodeAsync_rejects_an_edit_that_no_longer_parses()
     {
         GivenFile("src/A.cs", "class A { }\n");
-        var agent = AgentReturning("""
-            {"edits": [{"path": "src/A.cs", "contents": "class A { void M() { "}]}
-            """);
+        var agent = AgentReturning(Reply("src/A.cs", "class A { void M() { "));
 
         var act = () => agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/A.cs"), APlan("src/A.cs"));
 
@@ -128,9 +126,7 @@ public class CoderAgentTests : IDisposable
         // The fake replies the same thing to every call, so the request for B yields an
         // edit to A instead — which is dropped as off-target. One bad file must not sink
         // the run: per-file calls exist precisely so a failure stays local.
-        var agent = AgentReturning("""
-            {"edits": [{"path": "src/A.cs", "contents": "class A { int x; }\n"}]}
-            """);
+        var agent = AgentReturning(Reply("src/A.cs", "class A { int x; }"));
 
         var changes = await agent.WriteCodeAsync(
             AnIssue(),
@@ -144,7 +140,7 @@ public class CoderAgentTests : IDisposable
     [Fact]
     public async Task WriteCodeAsync_throws_when_no_affected_file_can_be_read()
     {
-        var agent = AgentReturning("""{"edits": []}""");
+        var agent = AgentReturning("NO_CHANGE");
 
         var act = () => agent.WriteCodeAsync(AnIssue(), AnAnalysis("src/Missing.cs"), APlan("src/Missing.cs"));
 
