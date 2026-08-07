@@ -2,6 +2,7 @@ using Loop.Engine.Agents.Retrieval;
 using Loop.Engine.Core.Abstractions;
 using Loop.Engine.Core.Model;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,7 +20,7 @@ public sealed class InvestigationAgent : IInvestigator
     private readonly ILogger<InvestigationAgent> _logger;
 
     public InvestigationAgent(
-        IChatClient chat,
+        [FromKeyedServices(DependencyInjection.ReasoningClientKey)] IChatClient chat,
         FileRetriever retriever,
         IOptions<InvestigationOptions> options,
         ILogger<InvestigationAgent> logger)

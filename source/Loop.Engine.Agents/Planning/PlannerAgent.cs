@@ -3,6 +3,7 @@ using Loop.Engine.Agents.Json;
 using Loop.Engine.Core.Abstractions;
 using Loop.Engine.Core.Model;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,7 +17,7 @@ public sealed class PlannerAgent : IPlanner
     private readonly ILogger<PlannerAgent> _logger;
 
     public PlannerAgent(
-        IChatClient chat,
+        [FromKeyedServices(DependencyInjection.ReasoningClientKey)] IChatClient chat,
         IOptions<InvestigationOptions> options,
         ILogger<PlannerAgent> logger)
     {
