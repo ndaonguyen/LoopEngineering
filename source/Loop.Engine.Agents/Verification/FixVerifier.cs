@@ -74,7 +74,8 @@ public sealed class FixVerifier
                 break;
             }
 
-            var repaired = await RepairAsync(issue, current, result, hypotheses, attempt + 1, cancellationToken);
+            var repaired = await RepairAsync(
+                issue, current, result, worktree, hypotheses, attempt + 1, cancellationToken);
 
             if (repaired is null)
             {
@@ -109,11 +110,16 @@ public sealed class FixVerifier
         Issue issue,
         List<CodeEdit> current,
         BuildResult failure,
+        IFixWorkspace workspace,
         List<string> hypotheses,
         int attempt,
         CancellationToken cancellationToken)
     {
-        var target = ChooseTarget(current, failure);
+        if (ChooseTarget(current, failure, workspace) is not { } target)
+        {
+            _logger.LogWarning("No repairable file could be identified from the failure.");
+            return null;
+        }
 
         List<ChatMessage> messages =
         [
@@ -155,26 +161,59 @@ public sealed class FixVerifier
             _logger.LogInformation("Attempt {Attempt} hypothesis: {Hypothesis}", attempt, edit.Hypothesis);
         }
 
-        return current
-            .Select(e => e.RelativePath == target.RelativePath
-                ? e with { NewContents = edit.Contents }
-                : e)
-            .ToList();
+        var updated = current.ToList();
+        var index = updated.FindIndex(e =>
+            string.Equals(e.RelativePath, target.RelativePath, StringComparison.OrdinalIgnoreCase));
+
+        if (index >= 0)
+        {
+            updated[index] = updated[index] with { NewContents = edit.Contents };
+        }
+        else
+        {
+            // A file the compiler named that we had not edited before — a call site broken
+            // by the fix. Adding it here is what lets a signature change finish repairing
+            // its own fallout instead of stalling with the right answer in hand.
+            updated.Add(new CodeEdit(target.RelativePath, edit.Contents));
+        }
+
+        return updated;
     }
 
-    /// <summary>The edited file the errors mention, falling back to the first.</summary>
-    private static CodeEdit ChooseTarget(List<CodeEdit> edits, BuildResult failure)
+    /// <summary>
+    /// The file to repair next.
+    ///
+    /// Prefers a file the <b>compiler</b> named, whether or not it has been edited before.
+    /// The investigation's allow-list describes files related to the <i>bug</i>; a
+    /// signature change breaks files related to the <i>fix</i>, and nothing upstream can
+    /// predict those. Expanding on compiler evidence keeps the Coder from wandering the
+    /// repository while letting a correct fix finish — a build error is a fact, not a
+    /// guess, and the path comes from the error text rather than from the model.
+    /// </summary>
+    private CodeEdit? ChooseTarget(List<CodeEdit> edits, BuildResult failure, IFixWorkspace workspace)
     {
-        foreach (var edit in edits)
+        foreach (var relative in BuildOutputParser.ParseErrorFiles(failure.RawOutput, workspace.Path))
         {
-            var name = Path.GetFileName(edit.RelativePath);
+            var existing = edits.FirstOrDefault(e =>
+                string.Equals(e.RelativePath, relative, StringComparison.OrdinalIgnoreCase));
 
-            if (failure.Errors.Any(e => e.Contains(name, StringComparison.OrdinalIgnoreCase)))
+            if (existing is not null)
             {
-                return edit;
+                return existing;
+            }
+
+            var full = Path.Combine(workspace.Path, relative.Replace('/', Path.DirectorySeparatorChar));
+
+            if (File.Exists(full))
+            {
+                _logger.LogInformation(
+                    "Adding '{Path}' to the repair set — the compiler named it.", relative);
+
+                return new CodeEdit(relative, File.ReadAllText(full));
             }
         }
 
-        return edits[0];
+        // Nothing the compiler named is reachable; fall back to what we changed.
+        return edits.Count > 0 ? edits[0] : null;
     }
 }

@@ -34,6 +34,8 @@ public sealed class FixWorktree : IFixWorkspace, IDisposable
     {
         var root = System.IO.Path.GetFullPath(repositoryRoot);
 
+        GuardAgainstUncommittedChanges(root, logger);
+
         // A hard kill leaves worktree metadata behind; prune before adding so a previous
         // crash cannot block this run.
         Run(root, ["worktree", "prune"], logger, throwOnFailure: false);
@@ -45,6 +47,51 @@ public sealed class FixWorktree : IFixWorkspace, IDisposable
         logger.LogInformation("Created worktree at {Path}.", path);
 
         return new FixWorktree(root, path, logger);
+    }
+
+    /// <summary>
+    /// Refuses to verify when the working tree has uncommitted changes.
+    ///
+    /// The Coder reads files from the working tree; this worktree is checked out at HEAD.
+    /// When those disagree, the model is shown code the compiler cannot see, and the
+    /// repair loop reasons correctly to a catastrophic conclusion: the references must be
+    /// fabricated, so delete them. It converges — on stripping out working functionality,
+    /// reporting success the whole way.
+    ///
+    /// That happened. It is not a hypothetical, and it is silent, which is why this is a
+    /// hard failure rather than a warning. The real fix is to read and build from the same
+    /// tree; until then, refusing on a dirty tree removes the mismatch entirely.
+    /// </summary>
+    private static void GuardAgainstUncommittedChanges(string root, ILogger logger)
+    {
+        var status = Run(root, ["status", "--porcelain"], logger, throwOnFailure: false).Trim();
+
+        if (status.Length == 0)
+        {
+            return;
+        }
+
+        // Porcelain lines are "XY path". Split on the first space rather than slicing at a
+        // fixed offset: the whole output was already trimmed, so the leading status column
+        // is no longer a reliable width.
+        var changed = status
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line =>
+            {
+                var trimmed = line.Trim();
+                var space = trimmed.IndexOf(' ');
+                return space >= 0 ? trimmed[(space + 1)..].Trim() : trimmed;
+            })
+            .Take(10)
+            .ToList();
+
+        throw new InvalidOperationException(
+            "Refusing to verify a fix while the working tree has uncommitted changes. " +
+            "The Coder reads the working tree but the build runs against HEAD, so any " +
+            "difference makes the compiler judge code it was never shown — and the repair " +
+            "loop 'fixes' that by deleting the code it cannot see. Commit or stash first. " +
+            $"Uncommitted: {string.Join(", ", changed)}" +
+            (status.Split('\n').Length > 10 ? ", …" : string.Empty));
     }
 
     /// <summary>Writes the Coder's file contents into the worktree.</summary>

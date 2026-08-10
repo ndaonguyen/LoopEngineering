@@ -6,6 +6,7 @@ using Loop.Engine.Agents.Verification;
 using Loop.Engine.Core.Abstractions;
 using Loop.Engine.Core.Model;
 using Loop.Engine.GitHub;
+using Loop.Engine.GitHub.Publishing;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,10 +30,13 @@ public sealed class IssuePollingService : BackgroundService
     private readonly ICoder _coder;
     private readonly FixVerifier _verifier;
     private readonly IReviewer _reviewer;
+    private readonly IGitPublisher _git;
+    private readonly IPullRequestPublisher _pullRequests;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly GitHubOptions _gitHub;
     private readonly AiOptions _investigation;
     private readonly RepositoryOptions _repository;
+    private readonly PublishingOptions _publishing;
     private readonly PipelineOptions _pipeline;
     private readonly ILogger<IssuePollingService> _logger;
 
@@ -43,10 +47,13 @@ public sealed class IssuePollingService : BackgroundService
         ICoder coder,
         FixVerifier verifier,
         IReviewer reviewer,
+        IGitPublisher git,
+        IPullRequestPublisher pullRequests,
         IHostApplicationLifetime lifetime,
         IOptions<GitHubOptions> gitHub,
         IOptions<AiOptions> investigation,
         IOptions<RepositoryOptions> repository,
+        IOptions<PublishingOptions> publishing,
         IOptions<PipelineOptions> pipeline,
         ILogger<IssuePollingService> logger)
     {
@@ -56,10 +63,13 @@ public sealed class IssuePollingService : BackgroundService
         _coder = coder;
         _verifier = verifier;
         _reviewer = reviewer;
+        _git = git;
+        _pullRequests = pullRequests;
         _lifetime = lifetime;
         _gitHub = gitHub.Value;
         _investigation = investigation.Value;
         _repository = repository.Value;
+        _publishing = publishing.Value;
         _pipeline = pipeline.Value;
         _logger = logger;
     }
@@ -177,7 +187,7 @@ public sealed class IssuePollingService : BackgroundService
 
         if (_pipeline.VerifyFix)
         {
-            await VerifyAndReviewAsync(issue, changes, cancellationToken);
+            await VerifyAndReviewAsync(issue, analysis, changes, cancellationToken);
         }
     }
 
@@ -186,7 +196,7 @@ public sealed class IssuePollingService : BackgroundService
     /// rather than merely reasoning about it.
     /// </summary>
     private async Task VerifyAndReviewAsync(
-        Issue issue, CodeChangeSet changes, CancellationToken cancellationToken)
+        Issue issue, AnalysisResult analysis, CodeChangeSet changes, CancellationToken cancellationToken)
     {
         using var worktree = FixWorktree.Create(_repository.RootPath, _logger);
 
@@ -206,6 +216,49 @@ public sealed class IssuePollingService : BackgroundService
         var reviewPath = await WriteReviewAsync(issue, verification, review, cancellationToken);
 
         Console.WriteLine($"Review for #{issue.Number} -> {reviewPath} ({review.Findings.Count} finding(s))");
+
+        if (_pipeline.PublishPr)
+        {
+            await PublishAsync(issue, analysis, verification, review, worktree, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Phase 5: branch, commit, push, open the pull request — in the worktree that was
+    /// verified, so what ships is exactly what passed. Then stop. A human merges.
+    /// </summary>
+    private async Task PublishAsync(
+        Issue issue,
+        AnalysisResult analysis,
+        VerificationResult verification,
+        ReviewReport review,
+        FixWorktree worktree,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var context = PullRequestBuilder.Build(
+                issue, analysis, verification, review, _publishing.BranchPrefix);
+
+            await _git.PublishBranchAsync(
+                worktree.Path, context.BranchName, context.Title, cancellationToken);
+
+            var pr = await _pullRequests.OpenAsync(context, cancellationToken);
+
+            Console.WriteLine();
+            Console.WriteLine($"Opened PR #{pr.Number} -> {pr.Url}");
+            Console.WriteLine("A human reviews and merges. The pipeline stops here.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A failed publish must not discard a verified fix — the diff and the review
+            // are already on disk, and the branch can be pushed by hand.
+            _logger.LogError(ex, "Could not publish the fix for #{Number}.", issue.Number);
+
+            Console.WriteLine();
+            Console.WriteLine($"Publish failed: {ex.Message}");
+            Console.WriteLine("The verified diff and review are still on disk.");
+        }
     }
 
     private async Task<string> WriteReviewAsync(

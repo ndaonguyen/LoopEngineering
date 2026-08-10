@@ -115,6 +115,39 @@ public class FixVerifierTests : IDisposable
     }
 
     [Fact]
+    public async Task VerifyAsync_repairs_a_call_site_the_compiler_names_but_the_plan_never_did()
+    {
+        // The case that stalled a real run: the fix changed a constructor signature, which
+        // broke a test file the investigation never identified. The model diagnosed it
+        // correctly twice and was refused, because the file was outside the allow-list.
+        using var workspace = new FakeFixWorkspace();
+
+        var callSite = Path.Combine(workspace.Path, "tests", "CallerTests.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(callSite)!);
+        File.WriteAllText(callSite, "class CallerTests { void M() { new A(); } }\n");
+
+        var failure = BuildResult.Failure(
+            ["CS7036: no argument for 'contentRoot'"],
+            $@"{callSite}(1,35): error CS7036: There is no argument given that corresponds to 'contentRoot'");
+
+        var runner = new FakeBuildRunner([failure], BuildResult.Success());
+
+        var verifier = Verifier(
+            runner,
+            "HYPOTHESIS: The call site needs the new argument\nFILE: tests/CallerTests.cs\n" +
+            "```csharp\nclass CallerTests { void M() { new A(root); } }\n```");
+
+        var result = await verifier.VerifyAsync(AnIssue(), AnEdit(), workspace);
+
+        result.Succeeded.Should().BeTrue();
+
+        // The compiler named it, so it earned its way in — the allow-list grew by evidence
+        // rather than by the model asking.
+        result.Edits.Should().Contain(e => e.RelativePath == "tests/CallerTests.cs");
+        result.Edits.Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task StuckReport_names_the_diagnoses_and_the_last_failure()
     {
         var runner = FakeBuildRunner.AlwaysFailing("error CS1002: ; expected");
