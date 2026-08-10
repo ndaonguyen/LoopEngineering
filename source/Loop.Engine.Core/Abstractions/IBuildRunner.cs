@@ -22,4 +22,20 @@ public interface IBuildRunner
         string? projectFilter = null,
         string? testFilter = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Formats the given files in place, so generated code arrives tidy rather than being
+    /// reported as untidy.
+    ///
+    /// Scoped to <paramref name="relativePaths"/> deliberately. Formatting the whole tree
+    /// would sweep in every pre-existing deviation in the repository, exactly as carrying
+    /// warnings into the retry loop would have spent all five attempts on <c>NU1902</c>.
+    ///
+    /// Fixing beats reporting here: whitespace and trailing newlines are mechanical, so
+    /// there is nothing for a model to decide and no reason to spend a repair attempt on it.
+    /// </summary>
+    Task<BuildResult> FormatAsync(
+        string workingDirectory,
+        IReadOnlyList<string> relativePaths,
+        CancellationToken cancellationToken = default);
 }

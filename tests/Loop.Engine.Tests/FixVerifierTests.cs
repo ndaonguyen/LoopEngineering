@@ -148,6 +148,34 @@ public class FixVerifierTests : IDisposable
     }
 
     [Fact]
+    public async Task Generated_files_are_formatted_before_they_are_built()
+    {
+        var runner = new FakeBuildRunner([BuildResult.Success()]);
+        using var worktree = AWorktree();
+
+        await Verifier(runner, RepairJson("n/a")).VerifyAsync(AnIssue(), AnEdit(), worktree);
+
+        // Only the files the fix touched. Formatting the whole tree would sweep in every
+        // pre-existing deviation in the repository — the same trap that carrying NU1902
+        // warnings into the retry loop would have been.
+        runner.Formatted.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(["src/A.cs"]);
+    }
+
+    [Fact]
+    public async Task A_formatter_that_cannot_run_does_not_lose_the_fix()
+    {
+        // Badly formatted working code beats no code. The SDK may not carry the tool, and
+        // that is not a reason to discard a fix that builds and passes.
+        var runner = new FakeBuildRunner([BuildResult.Success()]);
+        using var worktree = AWorktree();
+
+        var result = await Verifier(runner, RepairJson("n/a")).VerifyAsync(AnIssue(), AnEdit(), worktree);
+
+        result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task StuckReport_names_the_diagnoses_and_the_last_failure()
     {
         var runner = FakeBuildRunner.AlwaysFailing("error CS1002: ; expected");

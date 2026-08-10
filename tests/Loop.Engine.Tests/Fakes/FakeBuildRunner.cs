@@ -47,6 +47,21 @@ public sealed class FakeBuildRunner : IBuildRunner
     /// <summary>The filter the gate asked for, so a test can assert it was exact.</summary>
     public string? LastTestFilter { get; private set; }
 
+    /// <summary>Files handed to the formatter, so a test can assert the scope was narrow.</summary>
+    public List<IReadOnlyList<string>> Formatted { get; } = [];
+
+    public Task<BuildResult> FormatAsync(
+        string workingDirectory,
+        IReadOnlyList<string> relativePaths,
+        CancellationToken cancellationToken = default)
+    {
+        Formatted.Add(relativePaths);
+
+        // Deliberately not counted as an invocation: formatting is not an attempt, and
+        // letting it inflate the count would break the attempt-cap assertions.
+        return Task.FromResult(BuildResult.Success());
+    }
+
     // Tests only run when the build passed, so returning success keeps a "build succeeded"
     // result meaning exactly that in these tests.
     public Task<BuildResult> TestAsync(

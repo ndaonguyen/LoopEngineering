@@ -48,6 +48,37 @@ public sealed class DotnetBuildRunner : IBuildRunner
         return RunAsync(workingDirectory, args, "test", cancellationToken);
     }
 
+    public async Task<BuildResult> FormatAsync(
+        string workingDirectory,
+        IReadOnlyList<string> relativePaths,
+        CancellationToken cancellationToken = default)
+    {
+        if (relativePaths.Count == 0)
+        {
+            return BuildResult.Success();
+        }
+
+        List<string> args = ["format", "--no-restore", "--include", .. relativePaths];
+
+        var result = await RunAsync(workingDirectory, args, "format", cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            // Never fatal. The SDK may not carry the format tool, an analyzer may object to
+            // something unrelated, and none of that is a reason to discard a fix that
+            // builds and passes its tests. Badly formatted working code beats no code.
+            _logger.LogWarning(
+                "dotnet format did not complete; leaving the generated files as written. {First}",
+                result.Errors.FirstOrDefault() ?? "(no detail)");
+
+            return BuildResult.Success(result.RawOutput);
+        }
+
+        _logger.LogInformation("Formatted {Count} generated file(s).", relativePaths.Count);
+
+        return result;
+    }
+
     private async Task<BuildResult> RunAsync(
         string workingDirectory, IReadOnlyList<string> args, string label, CancellationToken cancellationToken)
     {
