@@ -283,7 +283,7 @@ carries the warning above the diff.
 
 ---
 
-## Phase 7 — Make it measurable
+## Phase 7 — Make it measurable ✅
 
 One line in the entire codebase touches `Usage`, in `InvestigationAgent`, and only on
 failure. So these questions currently have no answer:
@@ -300,6 +300,16 @@ A `RunMetrics` record accumulating tokens, wall time, and attempts per stage, ap
 `review-<n>.md`, is enough. Tens of lines, not a sprint.
 
 **Exit criterion:** every run ends with a per-stage cost and duration breakdown.
+
+Shipped. The first measured run said something immediately: Investigation spent **18,411
+input tokens against 205 output**. Roughly ninety to one — the cost is almost entirely the
+fifteen retrieved files being pushed through the prompt, not the model's answer. Any serious
+attempt to make this cheaper starts at retrieval, which is not where it would have been
+guessed.
+
+Prices are configuration (`Ai:InputCostPerMillion`, `Ai:OutputCostPerMillion`), not a built-in
+table. Unset means the cost column is omitted: a stale rate is wrong in a way nobody notices,
+and a confidently wrong cost is worse than an absent one.
 
 ---
 
