@@ -4,8 +4,10 @@ using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Planning;
 using Loop.Engine.Agents.Retrieval;
 using Loop.Engine.Agents.Review;
+using Loop.Engine.Agents.Telemetry;
 using Loop.Engine.Agents.Verification;
 using Loop.Engine.Core.Abstractions;
+using Loop.Engine.Core.Model;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,9 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<FileRetriever>();
+
+        // One accumulator for the whole tick; the pipeline resets it per run.
+        services.AddSingleton<RunMetrics>();
 
         // Two clients, because the stages have genuinely different demands. The default
         // serves the Coder, Reviewer, and repair loop; the "reasoning" key serves
@@ -67,11 +72,17 @@ public static class DependencyInjection
     /// <summary>Service key for the client used by Investigation and Planning.</summary>
     public const string ReasoningClientKey = "reasoning";
 
+    /// <summary>
+    /// Both clients are metered. Wrapping here rather than in each agent means a new agent
+    /// is measured the moment it is written, without anyone remembering to add it.
+    /// </summary>
     private static IChatClient CreateClient(
         IServiceProvider services, Func<AiOptions, string> selectModel)
     {
         var options = services.GetRequiredService<IOptions<AiOptions>>().Value;
-        return ChatClientFactory.Create(selectModel(options), options);
+        var client = ChatClientFactory.Create(selectModel(options), options);
+
+        return new MeteredChatClient(client, services.GetRequiredService<RunMetrics>());
     }
 
     /// <summary>Both configured ids must belong to a provider we can build a client for.</summary>

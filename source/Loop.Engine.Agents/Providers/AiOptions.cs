@@ -63,6 +63,21 @@ public sealed class AiOptions
     [Required(AllowEmptyStrings = false)]
     public string OutputDirectory { get; set; } = "output/investigations";
 
+    /// <summary>
+    /// Price per million input tokens, for the run's cost column. Zero — the default —
+    /// omits cost entirely and reports tokens only.
+    ///
+    /// Deliberately not shipped with a built-in price table. Rates change, a stale one is
+    /// wrong in a way nobody notices, and a confidently wrong cost figure is worse than an
+    /// absent one. Set it for the model you actually run.
+    /// </summary>
+    [Range(0, 10000)]
+    public decimal InputCostPerMillion { get; set; }
+
+    /// <summary>Price per million output tokens. See <see cref="InputCostPerMillion"/>.</summary>
+    [Range(0, 10000)]
+    public decimal OutputCostPerMillion { get; set; }
+
     /// <summary>Every distinct provider the configured models require.</summary>
     public IReadOnlyList<ModelProvider> RequiredProviders() =>
         new[] { ModelProviders.Resolve(Model.Trim()), ModelProviders.Resolve(EffectiveReasoningModel) }

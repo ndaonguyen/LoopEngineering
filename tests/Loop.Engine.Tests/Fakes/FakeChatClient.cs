@@ -15,13 +15,21 @@ public sealed class FakeChatClient : IChatClient
 
     public FakeChatClient(string responseText) => _responseText = responseText;
 
+    /// <summary>
+    /// Token usage to report, when a test cares. Null models the providers that omit it —
+    /// which is common enough that the metering has to cope.
+    /// </summary>
+    public UsageDetails? Usage { get; set; }
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ReceivedMessages.AddRange(messages);
-        return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _responseText)));
+
+        return Task.FromResult(
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, _responseText)) { Usage = Usage });
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

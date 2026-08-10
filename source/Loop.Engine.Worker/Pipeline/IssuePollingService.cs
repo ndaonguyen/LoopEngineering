@@ -38,6 +38,7 @@ public sealed class IssuePollingService : BackgroundService
     private readonly RepositoryOptions _repository;
     private readonly PublishingOptions _publishing;
     private readonly PipelineOptions _pipeline;
+    private readonly RunMetrics _metrics;
     private readonly ILogger<IssuePollingService> _logger;
 
     public IssuePollingService(
@@ -55,6 +56,7 @@ public sealed class IssuePollingService : BackgroundService
         IOptions<RepositoryOptions> repository,
         IOptions<PublishingOptions> publishing,
         IOptions<PipelineOptions> pipeline,
+        RunMetrics metrics,
         ILogger<IssuePollingService> logger)
     {
         _issues = issues;
@@ -71,6 +73,7 @@ public sealed class IssuePollingService : BackgroundService
         _repository = repository.Value;
         _publishing = publishing.Value;
         _pipeline = pipeline.Value;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -98,6 +101,10 @@ public sealed class IssuePollingService : BackgroundService
 
     private async Task PollOnceAsync(CancellationToken cancellationToken)
     {
+        // Figures are per-tick, not lifetime. A service running for a week would otherwise
+        // report one enormous cumulative number that says nothing about any single run.
+        _metrics.Reset();
+
         try
         {
             var issues = await _issues.GetOpenIssuesAsync(cancellationToken);
@@ -114,6 +121,12 @@ public sealed class IssuePollingService : BackgroundService
             // A transient GitHub or model failure must not kill the scheduler — log it and
             // wait for the next tick. Anything non-transient keeps showing up in the logs.
             _logger.LogError(ex, "Poll failed; retrying on the next tick.");
+        }
+        finally
+        {
+            // In `finally` on purpose: the run that burned the budget and produced nothing
+            // is exactly the one whose cost you want to see.
+            ReportMetrics();
         }
     }
 
@@ -145,7 +158,12 @@ public sealed class IssuePollingService : BackgroundService
 
         using var scoped = ScopedRetrievalRoot(worktree.Path);
 
-        var analysis = await _investigator.InvestigateAsync(issue, cancellationToken);
+        AnalysisResult analysis;
+        using (_metrics.BeginStage("Investigation"))
+        {
+            analysis = await _investigator.InvestigateAsync(issue, cancellationToken);
+        }
+
         var path = await WriteReportAsync(issue, analysis.Markdown, cancellationToken);
 
         Console.WriteLine();
@@ -156,6 +174,22 @@ public sealed class IssuePollingService : BackgroundService
         {
             await GenerateFixAsync(issue, analysis, worktree, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Prints what the tick spent. Always — including when a stage failed, because the run
+    /// that burned the budget without producing anything is the one worth seeing.
+    /// </summary>
+    private void ReportMetrics()
+    {
+        if (_metrics.TotalModelCalls == 0)
+        {
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Run cost:");
+        Console.WriteLine(_metrics.Render(_investigation.InputCostPerMillion, _investigation.OutputCostPerMillion));
     }
 
     /// <summary>
@@ -182,7 +216,11 @@ public sealed class IssuePollingService : BackgroundService
     private async Task GenerateFixAsync(
         Issue issue, AnalysisResult analysis, FixWorktree worktree, CancellationToken cancellationToken)
     {
-        var plan = await _planner.PlanAsync(issue, analysis, cancellationToken);
+        FixPlan plan;
+        using (_metrics.BeginStage("Planning"))
+        {
+            plan = await _planner.PlanAsync(issue, analysis, cancellationToken);
+        }
 
         Console.WriteLine();
         Console.WriteLine($"Plan for #{issue.Number}:");
@@ -191,7 +229,11 @@ public sealed class IssuePollingService : BackgroundService
             Console.WriteLine($"  {step.Order}. {step.Description}");
         }
 
-        var changes = await _coder.WriteCodeAsync(issue, analysis, plan, cancellationToken);
+        CodeChangeSet changes;
+        using (_metrics.BeginStage("Coding"))
+        {
+            changes = await _coder.WriteCodeAsync(issue, analysis, plan, cancellationToken);
+        }
 
         if (!changes.HasChanges)
         {
@@ -223,7 +265,11 @@ public sealed class IssuePollingService : BackgroundService
         FixWorktree worktree,
         CancellationToken cancellationToken)
     {
-        var verification = await _verifier.VerifyAsync(issue, changes.Edits, worktree, cancellationToken);
+        VerificationResult verification;
+        using (_metrics.BeginStage("Verification"))
+        {
+            verification = await _verifier.VerifyAsync(issue, changes.Edits, worktree, cancellationToken);
+        }
 
         Console.WriteLine();
         Console.WriteLine(verification.StuckReport());
@@ -235,7 +281,12 @@ public sealed class IssuePollingService : BackgroundService
             return;
         }
 
-        var review = await _reviewer.ReviewAsync(issue, changes.UnifiedDiff, cancellationToken);
+        ReviewReport review;
+        using (_metrics.BeginStage("Review"))
+        {
+            review = await _reviewer.ReviewAsync(issue, changes.UnifiedDiff, cancellationToken);
+        }
+
         var reviewPath = await WriteReviewAsync(issue, verification, review, cancellationToken);
 
         Console.WriteLine($"Review for #{issue.Number} -> {reviewPath} ({review.Findings.Count} finding(s))");
@@ -306,6 +357,12 @@ public sealed class IssuePollingService : BackgroundService
             }
             markdown.AppendLine();
         }
+
+        markdown.AppendLine("## Run cost");
+        markdown.AppendLine();
+        markdown.AppendLine(_metrics.Render(
+            _investigation.InputCostPerMillion, _investigation.OutputCostPerMillion));
+        markdown.AppendLine();
 
         markdown.AppendLine("## Findings");
         markdown.AppendLine();
