@@ -362,7 +362,7 @@ not evidence the gate is wrong.
 
 ---
 
-## Phase 9 — Quality of generated code
+## Phase 9 — Quality of generated code ✅
 
 PR #13 showed the Coder's habits: filler comments (`// Set the application root`), a
 stripped trailing newline, and a log line describing the resolution path it had just
@@ -373,6 +373,20 @@ formatting failure like a build failure. The compiler is already the referee; si
 formatter in the same chair. Anything checkable by a tool should never be asked of a model.
 
 **Exit criterion:** generated diffs pass `dotnet format` without human cleanup.
+
+Shipped, with one deviation. The plan said "treat a formatting failure like a build failure".
+It **fixes** instead of reporting: whitespace and trailing newlines are mechanical, so there
+is nothing for a model to decide and no reason to spend one of five repair attempts on it.
+
+Scoped to the files the fix touched. Formatting the whole tree would sweep in every
+pre-existing deviation in the repository — the same trap that carrying `NU1902` warnings into
+the retry loop would have been.
+
+Never fatal. A missing formatter is not a reason to discard a fix that builds and passes.
+
+Confirmed on the real defect: running the check over the merged #13 reported
+`error FINALNEWLINE: Fix final newline` on `FileRetriever.cs` — the exact mechanical defect
+that reached `main` and cost a human review comment.
 
 ---
 

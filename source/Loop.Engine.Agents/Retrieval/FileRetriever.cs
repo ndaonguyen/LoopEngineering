@@ -19,9 +19,26 @@ public sealed class FileRetriever
     {
         _options = options.Value;
         _logger = logger;
-        _applicationRoot = AppContext.BaseDirectory; // Set the application root
-        _logger.LogInformation("Resolved Repository:RootPath is: {RootPath}", Path.GetFullPath(_options.RootPath)); // Log the resolved path
+        _applicationRoot = AppContext.BaseDirectory;
     }
+
+    /// <summary>
+    /// Where retrieval reads from.
+    ///
+    /// A relative <c>RootPath</c> is anchored to the application directory, not the process
+    /// working directory — that was the defect in #8, where the same configuration resolved
+    /// to different trees depending on where the engine happened to be launched from.
+    /// <see cref="Path.Combine(string, string)"/> returns an already-rooted second argument
+    /// unchanged, so an absolute <c>RootPath</c> passes through untouched. The pipeline
+    /// relies on that: it points this at the worktree by absolute path for the duration of
+    /// a run.
+    ///
+    /// Resolved in one place because two copies of a path rule are two rules, and this
+    /// project has already paid twice for code holding separate opinions about which tree
+    /// it is working on.
+    /// </summary>
+    private string ResolveRoot() =>
+        Path.GetFullPath(Path.Combine(_applicationRoot, _options.RootPath));
 
     public IReadOnlyList<RetrievedFile> Retrieve(IReadOnlyList<string> symbols)
     {
@@ -31,7 +48,7 @@ public sealed class FileRetriever
             return [];
         }
 
-        var root = Path.GetFullPath(Path.Combine(_applicationRoot, _options.RootPath)); // Use application root to resolve the path
+        var root = ResolveRoot();
         if (!Directory.Exists(root))
         {
             throw new DirectoryNotFoundException($"Repository root '{root}' does not exist.");
@@ -81,9 +98,14 @@ public sealed class FileRetriever
             .Select(s => s.File)
             .ToList();
 
+        // The root is logged here, at the point of use, and not in the constructor. A
+        // constructor-time log reports a value the pipeline then replaces — it printed the
+        // developer's checkout while retrieval actually ran against a worktree in %TEMP%,
+        // which is precisely the wrong thing to hand someone reading logs during an
+        // incident about paths.
         _logger.LogInformation(
-            "Retrieved {Count} file(s) from {Candidates} candidate(s) for {Symbols} symbol(s).",
-            results.Count, candidates.Count, symbols.Count);
+            "Retrieved {Count} file(s) from {Candidates} candidate(s) for {Symbols} symbol(s) under {Root}.",
+            results.Count, candidates.Count, symbols.Count, root);
 
         return results;
     }
@@ -96,7 +118,7 @@ public sealed class FileRetriever
     /// </summary>
     public IReadOnlyList<RetrievedFile> ReadFiles(IReadOnlyList<string> relativePaths)
     {
-        var root = Path.GetFullPath(Path.Combine(_applicationRoot, _options.RootPath)); // Use application root to resolve the path
+        var root = ResolveRoot();
         var files = new List<RetrievedFile>();
 
         foreach (var relative in relativePaths)

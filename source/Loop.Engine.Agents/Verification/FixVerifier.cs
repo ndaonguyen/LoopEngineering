@@ -53,6 +53,15 @@ public sealed class FixVerifier
         {
             worktree.Apply(current);
 
+            if (_options.FormatGeneratedCode)
+            {
+                // Before the build, so what compiles, what the tests run against, and what
+                // gets pushed are all the formatted files. Formatting afterwards would
+                // publish something the pipeline never verified.
+                await _runner.FormatAsync(
+                    worktree.Path, current.Select(e => e.RelativePath).ToList(), cancellationToken);
+            }
+
             var result = await BuildAndTestAsync(worktree.Path, cancellationToken);
 
             if (result.Succeeded)

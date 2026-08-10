@@ -26,4 +26,18 @@ public sealed class VerificationOptions
 
     /// <summary>Timeout for a single build or test invocation.</summary>
     public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Run <c>dotnet format</c> over the generated files before building them.
+    ///
+    /// On by default, unlike the pipeline stages. Those are off until asked for because
+    /// each one does something new and outward-facing; this changes nothing about what the
+    /// engine produces, only whether the whitespace in it is right. PR #13 shipped with its
+    /// trailing newline stripped and filler comments left behind — mechanical defects that
+    /// cost a human review comment and that no model needs to be consulted about.
+    ///
+    /// Failure is never fatal: the formatter not running is not a reason to discard a fix
+    /// that builds and passes.
+    /// </summary>
+    public bool FormatGeneratedCode { get; set; } = true;
 }
