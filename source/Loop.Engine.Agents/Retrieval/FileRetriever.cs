@@ -1,6 +1,7 @@
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.IO;
 
 namespace Loop.Engine.Agents.Retrieval;
 
@@ -13,11 +14,22 @@ public sealed class FileRetriever
 {
     private readonly RepositoryOptions _options;
     private readonly ILogger<FileRetriever> _logger;
+    private readonly string _applicationRoot;
 
     public FileRetriever(IOptions<RepositoryOptions> options, ILogger<FileRetriever> logger)
     {
         _options = options.Value;
         _logger = logger;
+        _applicationRoot = Path.GetFullPath(AppContext.BaseDirectory);
+        
+        // Ensure RootPath is absolute; if relative, throw exception
+        if (!Path.IsPathRooted(_options.RootPath))
+        {
+            throw new InvalidOperationException($"RootPath '{_options.RootPath}' must be an absolute path.");
+        }
+
+        // Resolve RootPath against the application root
+        _options.RootPath = Path.Combine(_applicationRoot, _options.RootPath);
     }
 
     public IReadOnlyList<RetrievedFile> Retrieve(IReadOnlyList<string> symbols)

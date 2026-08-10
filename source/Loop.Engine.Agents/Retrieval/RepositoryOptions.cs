@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 
 namespace Loop.Engine.Agents.Retrieval;
 
@@ -24,4 +25,18 @@ public sealed class RepositoryOptions
     /// <summary>Upper bound on lines read from any single file.</summary>
     [Range(20, 5000)]
     public int MaxLinesPerFile { get; set; } = 400;
+
+    public void Validate()
+    {
+        var fullPath = Path.GetFullPath(RootPath);
+        if (!Path.IsPathRooted(fullPath))
+        {
+            throw new InvalidOperationException($"Repository root '{RootPath}' must be an absolute path.");
+        }
+
+        if (!Directory.Exists(fullPath))
+        {
+            throw new DirectoryNotFoundException($"Repository root '{fullPath}' does not exist.");
+        }
+    }
 }
