@@ -13,11 +13,14 @@ public sealed class FileRetriever
 {
     private readonly RepositoryOptions _options;
     private readonly ILogger<FileRetriever> _logger;
+    private readonly string _applicationRoot;
 
     public FileRetriever(IOptions<RepositoryOptions> options, ILogger<FileRetriever> logger)
     {
         _options = options.Value;
         _logger = logger;
+        _applicationRoot = AppContext.BaseDirectory; // Set the application root
+        _logger.LogInformation("Resolved Repository:RootPath is: {RootPath}", Path.GetFullPath(_options.RootPath)); // Log the resolved path
     }
 
     public IReadOnlyList<RetrievedFile> Retrieve(IReadOnlyList<string> symbols)
@@ -28,7 +31,7 @@ public sealed class FileRetriever
             return [];
         }
 
-        var root = Path.GetFullPath(_options.RootPath);
+        var root = Path.GetFullPath(Path.Combine(_applicationRoot, _options.RootPath)); // Use application root to resolve the path
         if (!Directory.Exists(root))
         {
             throw new DirectoryNotFoundException($"Repository root '{root}' does not exist.");
@@ -93,7 +96,7 @@ public sealed class FileRetriever
     /// </summary>
     public IReadOnlyList<RetrievedFile> ReadFiles(IReadOnlyList<string> relativePaths)
     {
-        var root = Path.GetFullPath(_options.RootPath);
+        var root = Path.GetFullPath(Path.Combine(_applicationRoot, _options.RootPath)); // Use application root to resolve the path
         var files = new List<RetrievedFile>();
 
         foreach (var relative in relativePaths)
