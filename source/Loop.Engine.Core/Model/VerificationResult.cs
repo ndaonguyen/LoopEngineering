@@ -1,6 +1,6 @@
-using Loop.Engine.Core.Model;
 
-namespace Loop.Engine.Agents.Verification;
+
+namespace Loop.Engine.Core.Model;
 
 /// <summary>
 /// The outcome of the retry loop.

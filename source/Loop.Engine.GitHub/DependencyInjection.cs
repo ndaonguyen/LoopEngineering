@@ -1,5 +1,6 @@
 using Loop.Engine.Core.Abstractions;
 using Loop.Engine.GitHub.Issues;
+using Loop.Engine.GitHub.Publishing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -29,7 +30,15 @@ public static class DependencyInjection
             };
         });
 
+        services
+            .AddOptions<PublishingOptions>()
+            .Bind(configuration.GetSection(PublishingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IIssueSource, GitHubIssueSource>();
+        services.AddSingleton<IGitPublisher, GitPublisher>();
+        services.AddSingleton<IPullRequestPublisher, PullRequestPublisher>();
 
         return services;
     }

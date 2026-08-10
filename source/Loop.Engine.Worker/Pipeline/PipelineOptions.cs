@@ -31,4 +31,13 @@ public sealed class PipelineOptions
     /// phase stays dormant until asked for, and the previous one remains the baseline.
     /// </summary>
     public bool VerifyFix { get; set; }
+
+    /// <summary>
+    /// Push the verified fix to a branch and open a pull request. Requires
+    /// <see cref="VerifyFix"/> — publishing an unbuilt fix would be worse than publishing
+    /// nothing, because a PR carries the appearance of review.
+    ///
+    /// Off by default, like every phase before it. It never merges.
+    /// </summary>
+    public bool PublishPr { get; set; }
 }
