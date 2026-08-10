@@ -44,6 +44,18 @@ public sealed class PipelineOptions
     public bool VerifyFix { get; set; }
 
     /// <summary>
+    /// Before writing the fix, write a test that fails because the bug is present, and
+    /// refuse to continue unless it actually goes red. Requires <see cref="GenerateFix"/>.
+    ///
+    /// This is what separates "the suite still passes" from "the bug is fixed". Without it
+    /// a pull request can only claim the change broke nothing.
+    ///
+    /// Off by default, like every phase before it — the previous behaviour stays the
+    /// baseline until this one is asked for.
+    /// </summary>
+    public bool ReproduceFirst { get; set; }
+
+    /// <summary>
     /// Push the verified fix to a branch and open a pull request. Requires
     /// <see cref="VerifyFix"/> — publishing an unbuilt fix would be worse than publishing
     /// nothing, because a PR carries the appearance of review.

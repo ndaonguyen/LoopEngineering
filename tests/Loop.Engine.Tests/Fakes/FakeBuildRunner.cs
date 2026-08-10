@@ -38,9 +38,28 @@ public sealed class FakeBuildRunner : IBuildRunner
         return Task.FromResult(_results.Count > 0 ? _results.Dequeue() : _fallback);
     }
 
+    /// <summary>
+    /// What a filtered run returns. The red gate needs a failing single test to mean
+    /// "reproduced" and a passing one to mean "proves nothing", so this is settable.
+    /// </summary>
+    public BuildResult? FilteredResult { get; set; }
+
+    /// <summary>The filter the gate asked for, so a test can assert it was exact.</summary>
+    public string? LastTestFilter { get; private set; }
+
     // Tests only run when the build passed, so returning success keeps a "build succeeded"
     // result meaning exactly that in these tests.
     public Task<BuildResult> TestAsync(
-        string workingDirectory, string? projectFilter = null, CancellationToken cancellationToken = default) =>
-        Task.FromResult(BuildResult.Success());
+        string workingDirectory,
+        string? projectFilter = null,
+        string? testFilter = null,
+        CancellationToken cancellationToken = default)
+    {
+        LastTestFilter = testFilter;
+
+        return Task.FromResult(
+            testFilter is not null && FilteredResult is not null
+                ? FilteredResult
+                : BuildResult.Success());
+    }
 }

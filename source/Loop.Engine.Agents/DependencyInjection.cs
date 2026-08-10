@@ -2,6 +2,7 @@ using Loop.Engine.Agents.Providers;
 using Loop.Engine.Agents.Coding;
 using Loop.Engine.Agents.Investigation;
 using Loop.Engine.Agents.Planning;
+using Loop.Engine.Agents.Reproduction;
 using Loop.Engine.Agents.Retrieval;
 using Loop.Engine.Agents.Review;
 using Loop.Engine.Agents.Telemetry;
@@ -59,6 +60,9 @@ public static class DependencyInjection
 
         services.AddSingleton<DiffGenerator>();
         services.AddSingleton<FixVerifier>();
+
+        services.AddSingleton<ReproductionGate>();
+        services.AddSingleton<IReproducer, ReproducerAgent>();
 
         services.AddSingleton<IInvestigator, InvestigationAgent>();
         services.AddSingleton<IPlanner, PlannerAgent>();

@@ -333,6 +333,33 @@ only then let `CoderAgent` run. The red→green transition becomes the evidence.
 **Exit criterion:** a PR contains a test that fails on `main` and passes on the branch, and
 the PR body can drop its disclaimer.
 
+### Shipped: the gate. Not shipped: a red test for #8.
+
+The gate works and is proven on real data. Two runs against #8 produced two different
+rejections, both correct:
+
+| Run | Outcome | What the model produced |
+| --- | --- | --- |
+| 1 | `AlreadyPasses` | A test that compiled and passed against the unfixed code |
+| 2 | `DoesNotCompile` | A test using `List<string>` where the option is `string[]`, and `BuildServiceProvider` from a package the test project does not reference |
+
+Run 1 is exactly the failure this phase exists to prevent. Without the gate that test would
+have entered the pull request, gone green after the fix, and the body would have claimed a
+reproduction that never existed.
+
+**The reproducer is not good enough yet, and the second failure says why.** Both compile
+errors are about things the model was never shown — the real shape of `RepositoryOptions`,
+and which packages the test project references. That is a retrieval gap, not a prompt gap,
+and no amount of instruction fixes it.
+
+Next attempt should hand the reproducer the declaring types it must construct and the test
+project's package list, the way `FileRetriever` already hands the Coder its target files.
+
+Worth recording separately: #8 may be unusually hard to reproduce in a unit test, because
+the defect is "resolves against the working directory" and a test can pass by coincidence
+depending on where the runner was launched. A bug whose reproduction is genuinely hard is
+not evidence the gate is wrong.
+
 ---
 
 ## Phase 9 — Quality of generated code
@@ -387,7 +414,7 @@ Gate PR creation on confidence. Below 70% → human approval required.
 | --- | --- | --- |
 | **1** (Phases 1–5) | A working autonomous pipeline from GitHub issue to pull request | ✅ shipped |
 | **2** (Phases 6–7) | Correctness and observability: bug-only selection, review gating, cost metrics | Phase 6 ✅ · Phase 7 planned |
-| **3** (Phase 8) | Prove the fix: failing test first, red→green as evidence | planned |
+| **3** (Phase 8) | Prove the fix: failing test first, red→green as evidence | gate ✅ · reproducer not yet |
 | **4** (Phase 9 +) | Production readiness: formatting gate, Docker sandboxing, confidence scoring, multi-repo | planned |
 
 Phases 6 and 7 are deliberately first. They are the smallest items on this list and the only

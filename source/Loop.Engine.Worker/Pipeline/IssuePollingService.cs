@@ -1,6 +1,7 @@
 using Loop.Engine.Agents.Providers;
 using System.Text;
 using Loop.Engine.Agents.Investigation;
+using Loop.Engine.Agents.Reproduction;
 using Loop.Engine.Agents.Retrieval;
 using Loop.Engine.Agents.Verification;
 using Loop.Engine.Core.Abstractions;
@@ -28,6 +29,8 @@ public sealed class IssuePollingService : BackgroundService
     private readonly IInvestigator _investigator;
     private readonly IPlanner _planner;
     private readonly ICoder _coder;
+    private readonly IReproducer _reproducer;
+    private readonly ReproductionGate _gate;
     private readonly FixVerifier _verifier;
     private readonly IReviewer _reviewer;
     private readonly IGitPublisher _git;
@@ -46,6 +49,8 @@ public sealed class IssuePollingService : BackgroundService
         IInvestigator investigator,
         IPlanner planner,
         ICoder coder,
+        IReproducer reproducer,
+        ReproductionGate gate,
         FixVerifier verifier,
         IReviewer reviewer,
         IGitPublisher git,
@@ -63,6 +68,8 @@ public sealed class IssuePollingService : BackgroundService
         _investigator = investigator;
         _planner = planner;
         _coder = coder;
+        _reproducer = reproducer;
+        _gate = gate;
         _verifier = verifier;
         _reviewer = reviewer;
         _git = git;
@@ -229,6 +236,27 @@ public sealed class IssuePollingService : BackgroundService
             Console.WriteLine($"  {step.Order}. {step.Description}");
         }
 
+        // The red gate runs before the fix exists, which is the only moment the test can
+        // prove anything: a test written after the fix, against fixed code, cannot
+        // demonstrate that it ever caught the bug.
+        ReproductionResult? reproduction = null;
+
+        if (_pipeline.ReproduceFirst)
+        {
+            reproduction = await ReproduceAsync(issue, analysis, plan, worktree, cancellationToken);
+
+            if (!reproduction.IsRed)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"Reproduction rejected ({reproduction.Outcome}): {reproduction.Detail}");
+                Console.WriteLine("Stopping. A fix nobody can prove is a fix nobody should merge.");
+                return;
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Reproduced: {reproduction.Detail}");
+        }
+
         CodeChangeSet changes;
         using (_metrics.BeginStage("Coding"))
         {
@@ -250,7 +278,26 @@ public sealed class IssuePollingService : BackgroundService
 
         if (_pipeline.VerifyFix)
         {
-            await VerifyAndReviewAsync(issue, analysis, changes, worktree, cancellationToken);
+            await VerifyAndReviewAsync(issue, analysis, changes, worktree, reproduction, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Writes the failing test and puts it through the gate. The model's opinion of its own
+    /// test counts for nothing here — the compiler and the runner decide.
+    /// </summary>
+    private async Task<ReproductionResult> ReproduceAsync(
+        Issue issue,
+        AnalysisResult analysis,
+        FixPlan plan,
+        FixWorktree worktree,
+        CancellationToken cancellationToken)
+    {
+        using (_metrics.BeginStage("Reproduction"))
+        {
+            var test = await _reproducer.WriteFailingTestAsync(issue, analysis, plan, cancellationToken);
+
+            return await _gate.RunAsync(test, worktree, cancellationToken);
         }
     }
 
@@ -263,6 +310,7 @@ public sealed class IssuePollingService : BackgroundService
         AnalysisResult analysis,
         CodeChangeSet changes,
         FixWorktree worktree,
+        ReproductionResult? reproduction,
         CancellationToken cancellationToken)
     {
         VerificationResult verification;
@@ -293,7 +341,7 @@ public sealed class IssuePollingService : BackgroundService
 
         if (_pipeline.PublishPr)
         {
-            await PublishAsync(issue, analysis, verification, review, worktree, cancellationToken);
+            await PublishAsync(issue, analysis, verification, review, worktree, reproduction, cancellationToken);
         }
     }
 
@@ -307,12 +355,13 @@ public sealed class IssuePollingService : BackgroundService
         VerificationResult verification,
         ReviewReport review,
         FixWorktree worktree,
+        ReproductionResult? reproduction,
         CancellationToken cancellationToken)
     {
         try
         {
             var context = PullRequestBuilder.Build(
-                issue, analysis, verification, review, _publishing.BranchPrefix);
+                issue, analysis, verification, review, _publishing.BranchPrefix, reproduction);
 
             await _git.PublishBranchAsync(
                 worktree.Path, context.BranchName, context.Title, cancellationToken);
