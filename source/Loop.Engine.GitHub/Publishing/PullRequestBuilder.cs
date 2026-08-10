@@ -30,7 +30,37 @@ public static class PullRequestBuilder
             ChangedFiles: verification.Edits.Select(e => e.RelativePath).ToList(),
             TestingNotes: BuildTestingNotes(verification),
             Risk: BuildRisk(review),
-            ReviewerNotes: BuildReviewerNotes(verification, review));
+            ReviewerNotes: BuildReviewerNotes(verification, review),
+            Warning: BuildWarning(review),
+            NeedsHuman: review.NeedsHuman);
+    }
+
+    /// <summary>
+    /// The banner above the fold. Empty for a clean review — a warning that appears on
+    /// every pull request is one nobody reads.
+    /// </summary>
+    private static string BuildWarning(ReviewReport review)
+    {
+        if (!review.NeedsHuman)
+        {
+            return string.Empty;
+        }
+
+        var high = review.Findings
+            .Where(f => f.ParsedSeverity == ReviewSeverity.High)
+            .ToList();
+
+        var lines = new StringBuilder();
+        lines.AppendLine(
+            $"> [!WARNING]\n> **The automated review raised {high.Count} high-severity " +
+            "finding(s). Read these before the diff.**");
+
+        foreach (var finding in high)
+        {
+            lines.AppendLine($"> - **{finding.Category}** — {finding.Detail}");
+        }
+
+        return lines.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -68,7 +98,7 @@ public static class PullRequestBuilder
     private static string BuildRisk(ReviewReport review)
     {
         var high = review.Findings
-            .Where(f => f.Severity.Equals("high", StringComparison.OrdinalIgnoreCase))
+            .Where(f => f.ParsedSeverity == ReviewSeverity.High)
             .ToList();
 
         return high.Count == 0

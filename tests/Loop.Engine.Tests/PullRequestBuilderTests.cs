@@ -113,6 +113,41 @@ public class PullRequestBuilderTests
         body.Should().Contain("_No findings._");
     }
 
+    [Fact]
+    public void Build_puts_a_high_severity_warning_above_the_summary()
+    {
+        var review = new ReviewReport([new ReviewFinding("security", "high", "Hard-coded credential.")]);
+
+        var body = Build(review: review).RenderBody();
+
+        // Position is the whole point. The findings already appeared at the bottom, under
+        // Reviewer Notes — by which point the diff has been read and a view formed. A
+        // warning that arrives after the decision is decoration.
+        body.IndexOf("[!WARNING]", StringComparison.Ordinal)
+            .Should().BeLessThan(body.IndexOf("## Summary", StringComparison.Ordinal));
+        body.Should().Contain("Read these before the diff");
+    }
+
+    [Fact]
+    public void Build_leaves_a_clean_review_unbannered()
+    {
+        var body = Build().RenderBody();
+
+        // A banner on every pull request is a banner nobody reads.
+        body.Should().NotContain("[!WARNING]");
+        Build().NeedsHuman.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Build_flags_for_a_human_only_at_high_severity()
+    {
+        var medium = new ReviewReport([new ReviewFinding("style", "medium", "Naming is inconsistent.")]);
+        var high = new ReviewReport([new ReviewFinding("correctness", "high", "Off-by-one.")]);
+
+        Build(review: medium).NeedsHuman.Should().BeFalse();
+        Build(review: high).NeedsHuman.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("Fix the Widget!", "fix-the-widget")]
     [InlineData("  Trailing  spaces  ", "trailing-spaces")]
