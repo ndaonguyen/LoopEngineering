@@ -18,6 +18,17 @@ public sealed class PipelineOptions
     public bool RunOnce { get; set; }
 
     /// <summary>
+    /// Only issues carrying this label are eligible. The engine fixes bugs; a feature
+    /// request handed to a bug-fixing pipeline produces a confident, plausible, wrong PR.
+    ///
+    /// Matches the <c>bug-loop</c> skill, which is driven by the same label.
+    ///
+    /// Set to empty to disable the check — which means accepting that the oldest open
+    /// issue, whatever it is, gets treated as a bug.
+    /// </summary>
+    public string RequiredLabel { get; set; } = "bug";
+
+    /// <summary>
     /// Run the Planner and Coder after investigating, and write a <c>.diff</c>.
     ///
     /// Off by default: Phase 2 is the working baseline, and adding a phase should not

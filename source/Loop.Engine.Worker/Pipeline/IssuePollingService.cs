@@ -101,7 +101,7 @@ public sealed class IssuePollingService : BackgroundService
         try
         {
             var issues = await _issues.GetOpenIssuesAsync(cancellationToken);
-            Console.WriteLine(IssueReportFormatter.FormatAll(issues));
+            Console.WriteLine(IssueReportFormatter.FormatAll(issues, _pipeline.RequiredLabel));
 
             var target = SelectTarget(issues);
             if (target is not null)
@@ -118,26 +118,20 @@ public sealed class IssuePollingService : BackgroundService
     }
 
     /// <summary>
-    /// The configured issue when one is set, otherwise the oldest open one. An explicitly
-    /// requested issue that isn't open is an error worth saying out loud — silently
-    /// investigating a different issue would look like success.
+    /// The configured issue when one is set, otherwise the oldest eligible one — see
+    /// <see cref="IssueSelector"/> for the policy. Anything that stops a tick from working
+    /// is said out loud: doing nothing quietly is indistinguishable from success.
     /// </summary>
     private Issue? SelectTarget(IReadOnlyList<Issue> issues)
     {
-        if (_pipeline.IssueNumber is not { } wanted)
+        var selection = IssueSelector.Select(issues, _pipeline.IssueNumber, _pipeline.RequiredLabel);
+
+        if (selection.Rejection is { } reason)
         {
-            return issues.OrderBy(i => i.Number).FirstOrDefault();
+            _logger.LogWarning("{Reason}", reason);
         }
 
-        var match = issues.FirstOrDefault(i => i.Number == wanted);
-        if (match is null)
-        {
-            _logger.LogError(
-                "Pipeline:IssueNumber={Wanted} was requested but is not among the {Count} open issue(s). " +
-                "Nothing investigated this tick.", wanted, issues.Count);
-        }
-
-        return match;
+        return selection.Issue;
     }
 
     private async Task InvestigateAsync(Issue issue, CancellationToken cancellationToken)

@@ -232,9 +232,14 @@ real runs proved wrong, and each has direct evidence.
 
 ---
 
-## Phase 6 — Fix what the first runs exposed
+## Phase 6 — Fix what the first runs exposed ✅
 
 Two defects, both small, both live. Neither is a feature request.
+
+Shipped. Two corrections came out of building it, both recorded on the issues: the label
+filter belongs in the selector rather than the issue source (transport vs policy), and
+`PullRequestBuilder` already read `Severity` — the real gaps were the missing label and the
+findings sitting below the diff.
 
 ### 6.1 The loop does not check that an issue is a bug
 
@@ -371,7 +376,7 @@ Gate PR creation on confidence. Below 70% → human approval required.
 | Sprint | Focus | Status |
 | --- | --- | --- |
 | **1** (Phases 1–5) | A working autonomous pipeline from GitHub issue to pull request | ✅ shipped |
-| **2** (Phases 6–7) | Correctness and observability: bug-only selection, review gating, cost metrics | planned |
+| **2** (Phases 6–7) | Correctness and observability: bug-only selection, review gating, cost metrics | Phase 6 ✅ · Phase 7 planned |
 | **3** (Phase 8) | Prove the fix: failing test first, red→green as evidence | planned |
 | **4** (Phase 9 +) | Production readiness: formatting gate, Docker sandboxing, confidence scoring, multi-repo | planned |
 

@@ -20,4 +20,12 @@ public sealed class PublishingOptions
     /// <summary>The branch pull requests target.</summary>
     [Required(AllowEmptyStrings = false)]
     public string BaseBranch { get; set; } = "main";
+
+    /// <summary>
+    /// Applied to a pull request whose automated review raised a high-severity finding.
+    /// A signal, not a gate — the pull request opens either way.
+    ///
+    /// Set to empty to skip labelling.
+    /// </summary>
+    public string NeedsHumanLabel { get; set; } = "needs-human";
 }
