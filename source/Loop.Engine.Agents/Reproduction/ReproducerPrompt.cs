@@ -25,6 +25,17 @@ public static class ReproducerPrompt
         Prefer the smallest possible test. One arrange, one act, one assertion about the
         thing the issue complains about. No setup for scenarios the issue does not mention.
 
+        **Make the failure deterministic.** Many bugs only misbehave under a particular
+        condition — a working directory, an environment variable, a culture, a clock, a
+        relative path, an empty collection. Your test must *establish that condition
+        itself*, not hope the test host happens to provide it. A test that depends on where
+        the runner was launched from will pass on the machine that wrote it and prove
+        nothing anywhere else.
+
+        Before you answer, state to yourself what the assertion evaluates to **today**,
+        with the bug present. If the answer is "it passes", you have written the wrong
+        test — find the input that actually distinguishes broken from fixed.
+
         Follow the conventions of the test files you are shown: framework, assertion style,
         naming, namespace, and file layout. If those files use a particular assertion
         library, use it — do not introduce another.
@@ -100,7 +111,7 @@ public static class ReproducerPrompt
             prompt.AppendLine($"## {file.RelativePath}");
             prompt.AppendLine();
             prompt.AppendLine("```csharp");
-            prompt.AppendLine(file.Contents);
+            prompt.AppendLine(file.Excerpt);
             prompt.AppendLine("```");
             prompt.AppendLine();
         }

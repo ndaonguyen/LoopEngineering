@@ -23,7 +23,10 @@ public sealed class DotnetBuildRunner : IBuildRunner
         RunAsync(workingDirectory, ["build", "--nologo", "-v", "q"], "build", cancellationToken);
 
     public Task<BuildResult> TestAsync(
-        string workingDirectory, string? projectFilter = null, CancellationToken cancellationToken = default)
+        string workingDirectory,
+        string? projectFilter = null,
+        string? testFilter = null,
+        CancellationToken cancellationToken = default)
     {
         List<string> args = ["test", "--nologo", "-v", "q"];
 
@@ -31,6 +34,15 @@ public sealed class DotnetBuildRunner : IBuildRunner
         if (!string.IsNullOrWhiteSpace(project))
         {
             args.Add(project);
+        }
+
+        if (!string.IsNullOrWhiteSpace(testFilter))
+        {
+            // Exact match, not `~`. A substring filter on a generated name can sweep in
+            // neighbouring tests, and then a failure somewhere else reads as the bug being
+            // reproduced.
+            args.Add("--filter");
+            args.Add($"FullyQualifiedName={testFilter}");
         }
 
         return RunAsync(workingDirectory, args, "test", cancellationToken);

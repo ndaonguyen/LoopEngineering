@@ -113,6 +113,57 @@ public class PullRequestBuilderTests
         body.Should().Contain("_No findings._");
     }
 
+    private static ReproductionTest AReproductionTest() => new(
+        "tests/Loop.Engine.Tests/RootPathTests.cs",
+        "namespace T; public class RootPathTests { [Fact] public void It() { } }",
+        "Loop.Engine.Tests.RootPathTests.It_resolves_against_the_app");
+
+    [Fact]
+    public void Build_drops_the_disclaimer_when_a_test_went_red_then_green()
+    {
+        var reproduction = ReproductionResult.Red(AReproductionTest(), "fails today");
+
+        var body = PullRequestBuilder.Build(
+            AnIssue(), AnAnalysis(), AVerification(), ReviewReport.Empty, "fix/", reproduction).RenderBody();
+
+        body.Should().NotContain("No test reproduces");
+        body.Should().Contain("A test reproduces the original defect");
+        body.Should().Contain("Loop.Engine.Tests.RootPathTests.It_resolves_against_the_app");
+    }
+
+    [Fact]
+    public void Build_keeps_the_disclaimer_when_the_gate_rejected_the_test()
+    {
+        // "The suite is green" has never meant "the bug is gone". The claim is only
+        // dropped against an observed red-to-green transition.
+        var rejected = ReproductionResult.Rejected(
+            ReproductionOutcome.AlreadyPasses, AReproductionTest(), "passes already");
+
+        var body = PullRequestBuilder.Build(
+            AnIssue(), AnAnalysis(), AVerification(), ReviewReport.Empty, "fix/", rejected).RenderBody();
+
+        body.Should().Contain("No test reproduces the original defect");
+    }
+
+    [Fact]
+    public void Build_keeps_the_disclaimer_when_no_reproduction_was_attempted()
+    {
+        Build().RenderBody().Should().Contain("No test reproduces the original defect");
+    }
+
+    [Fact]
+    public void Build_lists_the_reproduction_test_among_the_changed_files()
+    {
+        var reproduction = ReproductionResult.Red(AReproductionTest(), "fails today");
+
+        var context = PullRequestBuilder.Build(
+            AnIssue(), AnAnalysis(), AVerification(), ReviewReport.Empty, "fix/", reproduction);
+
+        // It is a real file in the branch but never passes through verification.Edits, so
+        // without this the pull request under-reports what it changes.
+        context.ChangedFiles.Should().Contain("tests/Loop.Engine.Tests/RootPathTests.cs");
+    }
+
     [Fact]
     public void Build_puts_a_high_severity_warning_above_the_summary()
     {

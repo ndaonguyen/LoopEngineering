@@ -11,6 +11,15 @@ public interface IBuildRunner
 {
     Task<BuildResult> BuildAsync(string workingDirectory, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Runs the suite, or one test when <paramref name="testFilter"/> is a fully-qualified
+    /// name. The single-test form exists for the red gate: an unfiltered run cannot tell
+    /// the reproduction failing from any other test failing, and "something is red" is not
+    /// evidence that the bug is reproduced.
+    /// </summary>
     Task<BuildResult> TestAsync(
-        string workingDirectory, string? projectFilter = null, CancellationToken cancellationToken = default);
+        string workingDirectory,
+        string? projectFilter = null,
+        string? testFilter = null,
+        CancellationToken cancellationToken = default);
 }

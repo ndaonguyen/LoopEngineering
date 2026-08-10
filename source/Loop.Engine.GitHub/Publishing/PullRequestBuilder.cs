@@ -16,9 +16,20 @@ public static class PullRequestBuilder
         AnalysisResult analysis,
         VerificationResult verification,
         ReviewReport review,
-        string branchPrefix)
+        string branchPrefix,
+        ReproductionResult? reproduction = null)
     {
         var branch = $"{branchPrefix}{issue.Number}-{Slug(issue.Title)}";
+
+        var changed = verification.Edits.Select(e => e.RelativePath).ToList();
+
+        // The reproduction test is a real file in the branch, written before the fix. It
+        // does not come through verification.Edits, so listing it here is the only way the
+        // pull request describes everything it actually changes.
+        if (reproduction?.Test is { } test && !changed.Contains(test.RelativePath, StringComparer.OrdinalIgnoreCase))
+        {
+            changed.Insert(0, test.RelativePath);
+        }
 
         return new PullRequestContext(
             IssueNumber: issue.Number,
@@ -27,8 +38,8 @@ public static class PullRequestBuilder
             Title: $"fix: {FirstLine(issue.Title)}",
             Summary: BuildSummary(analysis, verification),
             RootCause: BuildRootCause(analysis),
-            ChangedFiles: verification.Edits.Select(e => e.RelativePath).ToList(),
-            TestingNotes: BuildTestingNotes(verification),
+            ChangedFiles: changed,
+            TestingNotes: BuildTestingNotes(verification, reproduction),
             Risk: BuildRisk(review),
             ReviewerNotes: BuildReviewerNotes(verification, review),
             Warning: BuildWarning(review),
@@ -90,10 +101,38 @@ public static class PullRequestBuilder
             ? "_Not determined._"
             : string.Join("\n", analysis.PossibleRootCauses.Select(c => $"- {c}"));
 
-    private static string BuildTestingNotes(VerificationResult verification) =>
-        "`dotnet build` and `dotnet test` pass in a clean worktree.\n\n" +
-        "**No test reproduces the original defect.** The suite proves this change breaks " +
-        "nothing; it does not prove the reported bug is fixed. Confirm that yourself before merging.";
+    /// <summary>
+    /// The disclaimer is removed only against evidence — a test that was observed failing
+    /// on the unfixed tree and passing on the fixed one. Anything less and the note stays,
+    /// because "the suite is green" has never meant "the bug is gone".
+    /// </summary>
+    private static string BuildTestingNotes(
+        VerificationResult verification, ReproductionResult? reproduction)
+    {
+        const string clean = "`dotnet build` and `dotnet test` pass in a clean worktree.";
+
+        if (reproduction is { IsRed: true, Test: { } test })
+        {
+            return $"""
+                {clean}
+
+                **A test reproduces the original defect.** `{test.FullyQualifiedName}` was written
+                before the fix and observed **failing** against the unfixed code; it passes with
+                the fix applied. That red-to-green transition is the evidence this change works —
+                revert the fix and the test goes red again.
+
+                The test is `{test.RelativePath}`, included in this branch.
+                """;
+        }
+
+        return $"""
+            {clean}
+
+            **No test reproduces the original defect.** The suite proves this change breaks
+            nothing; it does not prove the reported bug is fixed. Confirm that yourself before
+            merging.
+            """;
+    }
 
     private static string BuildRisk(ReviewReport review)
     {

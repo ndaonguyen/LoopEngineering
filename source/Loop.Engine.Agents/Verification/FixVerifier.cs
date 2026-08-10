@@ -97,7 +97,7 @@ public sealed class FixVerifier
         // No point running tests against a tree that does not compile — the test output
         // would just restate the compiler errors in a noisier form.
         return build.Succeeded
-            ? await _runner.TestAsync(path, _options.TestProject, cancellationToken)
+            ? await _runner.TestAsync(path, _options.TestProject, cancellationToken: cancellationToken)
             : build;
     }
 
