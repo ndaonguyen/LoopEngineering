@@ -30,69 +30,67 @@ public sealed class FixWorktree : IFixWorkspace, IDisposable
         _logger = logger;
     }
 
-    public static FixWorktree Create(string repositoryRoot, ILogger logger)
+    /// <summary>
+    /// Creates a worktree at the tip of <paramref name="baseBranch"/> — the branch the
+    /// eventual pull request will target.
+    ///
+    /// Not <c>HEAD</c>. A fix destined for a PR against <c>main</c> must be built on
+    /// <c>main</c>: branching from whatever the developer happens to be standing on drags
+    /// every unmerged commit of that branch into the PR, so a two-file fix arrives as a
+    /// twenty-four-file diff that nobody can review.
+    ///
+    /// This tree is then used for <b>everything</b> — retrieval, coding, building, and
+    /// publishing. One tree means "the code we are changing" and "the code we are
+    /// compiling" cannot disagree, which is the failure that silently deleted working code
+    /// earlier in this project and would have come back the moment those two diverged.
+    /// </summary>
+    public static FixWorktree Create(string repositoryRoot, string baseBranch, string remote, ILogger logger)
     {
         var root = System.IO.Path.GetFullPath(repositoryRoot);
-
-        GuardAgainstUncommittedChanges(root, logger);
 
         // A hard kill leaves worktree metadata behind; prune before adding so a previous
         // crash cannot block this run.
         Run(root, ["worktree", "prune"], logger, throwOnFailure: false);
+        Run(root, ["fetch", remote, baseBranch], logger, throwOnFailure: false);
 
         var path = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(), $"loop-engine-wt-{Guid.NewGuid():N}");
 
-        Run(root, ["worktree", "add", "--detach", path, "HEAD"], logger, throwOnFailure: true);
-        logger.LogInformation("Created worktree at {Path}.", path);
+        var start = ResolveStartPoint(root, baseBranch, remote, logger);
+
+        Run(root, ["worktree", "add", "--detach", path, start], logger, throwOnFailure: true);
+        logger.LogInformation("Created worktree at {Path} from {Start}.", path, start);
 
         return new FixWorktree(root, path, logger);
     }
 
     /// <summary>
-    /// Refuses to verify when the working tree has uncommitted changes.
-    ///
-    /// The Coder reads files from the working tree; this worktree is checked out at HEAD.
-    /// When those disagree, the model is shown code the compiler cannot see, and the
-    /// repair loop reasons correctly to a catastrophic conclusion: the references must be
-    /// fabricated, so delete them. It converges — on stripping out working functionality,
-    /// reporting success the whole way.
-    ///
-    /// That happened. It is not a hypothetical, and it is silent, which is why this is a
-    /// hard failure rather than a warning. The real fix is to read and build from the same
-    /// tree; until then, refusing on a dirty tree removes the mismatch entirely.
+    /// Prefers the remote-tracking ref so the fix is built on what is actually published,
+    /// not on a stale local copy. Falls back to the local branch when there is no remote —
+    /// which is the case in tests.
     /// </summary>
-    private static void GuardAgainstUncommittedChanges(string root, ILogger logger)
+    private static string ResolveStartPoint(string root, string baseBranch, string remote, ILogger logger)
     {
-        var status = Run(root, ["status", "--porcelain"], logger, throwOnFailure: false).Trim();
+        var tracking = $"{remote}/{baseBranch}";
 
-        if (status.Length == 0)
+        var exists = Run(root, ["rev-parse", "--verify", "--quiet", tracking], logger, throwOnFailure: false);
+
+        if (!string.IsNullOrWhiteSpace(exists))
         {
-            return;
+            return tracking;
         }
 
-        // Porcelain lines are "XY path". Split on the first space rather than slicing at a
-        // fixed offset: the whole output was already trimmed, so the leading status column
-        // is no longer a reliable width.
-        var changed = status
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line =>
-            {
-                var trimmed = line.Trim();
-                var space = trimmed.IndexOf(' ');
-                return space >= 0 ? trimmed[(space + 1)..].Trim() : trimmed;
-            })
-            .Take(10)
-            .ToList();
+        logger.LogWarning(
+            "No {Tracking} ref; falling back to the local '{Base}'. The fix may be built on a stale base.",
+            tracking, baseBranch);
 
-        throw new InvalidOperationException(
-            "Refusing to verify a fix while the working tree has uncommitted changes. " +
-            "The Coder reads the working tree but the build runs against HEAD, so any " +
-            "difference makes the compiler judge code it was never shown — and the repair " +
-            "loop 'fixes' that by deleting the code it cannot see. Commit or stash first. " +
-            $"Uncommitted: {string.Join(", ", changed)}" +
-            (status.Split('\n').Length > 10 ? ", …" : string.Empty));
+        return baseBranch;
     }
+
+    // The dirty-tree guard that used to live here is gone, and deliberately so. It existed
+    // because the Coder read the developer's working tree while the build ran against HEAD;
+    // now every stage reads and writes this one worktree, so there is no second tree left
+    // to diverge from. Removing the cause beats guarding the symptom.
 
     /// <summary>Writes the Coder's file contents into the worktree.</summary>
     public void Apply(IReadOnlyList<CodeEdit> edits)

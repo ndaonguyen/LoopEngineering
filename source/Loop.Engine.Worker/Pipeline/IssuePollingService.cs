@@ -142,6 +142,15 @@ public sealed class IssuePollingService : BackgroundService
 
     private async Task InvestigateAsync(Issue issue, CancellationToken cancellationToken)
     {
+        // One worktree, created from the branch the PR will target, used by every stage:
+        // retrieval, coding, building, publishing. Two trees would eventually disagree
+        // about which code is being changed — and when they did, the repair loop resolved
+        // it by deleting the code the compiler could not see.
+        using var worktree = FixWorktree.Create(
+            _repository.RootPath, _publishing.BaseBranch, _publishing.Remote, _logger);
+
+        using var scoped = ScopedRetrievalRoot(worktree.Path);
+
         var analysis = await _investigator.InvestigateAsync(issue, cancellationToken);
         var path = await WriteReportAsync(issue, analysis.Markdown, cancellationToken);
 
@@ -151,15 +160,33 @@ public sealed class IssuePollingService : BackgroundService
 
         if (_pipeline.GenerateFix)
         {
-            await GenerateFixAsync(issue, analysis, cancellationToken);
+            await GenerateFixAsync(issue, analysis, worktree, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Points retrieval at the worktree for the duration of the run, so the files the model
+    /// is shown are the files that will be compiled and published.
+    /// </summary>
+    private IDisposable ScopedRetrievalRoot(string worktreePath)
+    {
+        var previous = _repository.RootPath;
+        _repository.RootPath = worktreePath;
+
+        return new Restore(() => _repository.RootPath = previous);
+    }
+
+    private sealed class Restore(Action onDispose) : IDisposable
+    {
+        public void Dispose() => onDispose();
     }
 
     /// <summary>
     /// Phase 3: plan, then code, then write the diff. Stops there — no branch, no commit,
     /// no PR, and no build. Verifying the diff is Phase 4's job.
     /// </summary>
-    private async Task GenerateFixAsync(Issue issue, AnalysisResult analysis, CancellationToken cancellationToken)
+    private async Task GenerateFixAsync(
+        Issue issue, AnalysisResult analysis, FixWorktree worktree, CancellationToken cancellationToken)
     {
         var plan = await _planner.PlanAsync(issue, analysis, cancellationToken);
 
@@ -187,7 +214,7 @@ public sealed class IssuePollingService : BackgroundService
 
         if (_pipeline.VerifyFix)
         {
-            await VerifyAndReviewAsync(issue, analysis, changes, cancellationToken);
+            await VerifyAndReviewAsync(issue, analysis, changes, worktree, cancellationToken);
         }
     }
 
@@ -196,10 +223,12 @@ public sealed class IssuePollingService : BackgroundService
     /// rather than merely reasoning about it.
     /// </summary>
     private async Task VerifyAndReviewAsync(
-        Issue issue, AnalysisResult analysis, CodeChangeSet changes, CancellationToken cancellationToken)
+        Issue issue,
+        AnalysisResult analysis,
+        CodeChangeSet changes,
+        FixWorktree worktree,
+        CancellationToken cancellationToken)
     {
-        using var worktree = FixWorktree.Create(_repository.RootPath, _logger);
-
         var verification = await _verifier.VerifyAsync(issue, changes.Edits, worktree, cancellationToken);
 
         Console.WriteLine();
