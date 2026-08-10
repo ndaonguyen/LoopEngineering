@@ -12,7 +12,7 @@ public class FixWorktreeTests : IDisposable
 
     public FixWorktreeTests()
     {
-        Git("init", "-q");
+        Git("init", "-q", "-b", "main");
         Git("config", "user.email", "test@example.com");
         Git("config", "user.name", "Test");
         File.WriteAllText(Path.Combine(_repo, "A.cs"), "class A { }\n");
@@ -40,46 +40,63 @@ public class FixWorktreeTests : IDisposable
         process.WaitForExit();
     }
 
+    private FixWorktree Create() =>
+        FixWorktree.Create(_repo, "main", "origin", NullLogger<FixWorktreeTests>.Instance);
+
     [Fact]
-    public void Create_succeeds_on_a_clean_tree()
+    public void Create_checks_out_the_base_branch()
     {
-        using var worktree = FixWorktree.Create(_repo, NullLogger<FixWorktreeTests>.Instance);
+        using var worktree = Create();
 
         Directory.Exists(worktree.Path).Should().BeTrue();
         File.Exists(Path.Combine(worktree.Path, "A.cs")).Should().BeTrue();
     }
 
     [Fact]
-    public void Create_refuses_when_the_working_tree_is_dirty()
+    public void Create_uses_the_base_branch_not_the_current_one()
     {
-        File.WriteAllText(Path.Combine(_repo, "A.cs"), "class A { int uncommitted; }\n");
+        // The defect this replaced: branching from HEAD dragged every unmerged commit of
+        // the developer's branch into the fix PR — a two-file fix arrived as 24 files.
+        Git("checkout", "-q", "-b", "feature/unrelated");
+        File.WriteAllText(Path.Combine(_repo, "Unrelated.cs"), "class Unrelated { }\n");
+        Git("add", ".");
+        Git("commit", "-q", "-m", "work in progress");
 
-        var act = () => FixWorktree.Create(_repo, NullLogger<FixWorktreeTests>.Instance);
+        using var worktree = Create();
 
-        // The failure this guards against is silent and destructive: the Coder reads the
-        // working tree, the build judges HEAD, and the repair loop resolves the mismatch
-        // by deleting the code the compiler cannot see. It has happened once already.
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*uncommitted changes*")
-            .And.Message.Should().Contain("A.cs");
+        File.Exists(Path.Combine(worktree.Path, "Unrelated.cs")).Should().BeFalse();
+        File.Exists(Path.Combine(worktree.Path, "A.cs")).Should().BeTrue();
     }
 
     [Fact]
-    public void Create_refuses_when_a_file_is_untracked()
+    public void Create_succeeds_even_when_the_working_tree_is_dirty()
     {
-        File.WriteAllText(Path.Combine(_repo, "New.cs"), "class New { }\n");
+        // Uncommitted work used to be a hard failure, because the Coder read the working
+        // tree while the build ran against HEAD. Every stage now shares one worktree, so
+        // the developer's local edits are simply irrelevant.
+        File.WriteAllText(Path.Combine(_repo, "A.cs"), "class A { int uncommitted; }\n");
 
-        var act = () => FixWorktree.Create(_repo, NullLogger<FixWorktreeTests>.Instance);
+        using var worktree = Create();
 
-        // An untracked file is the same hazard: present for the Coder, absent at HEAD.
-        act.Should().Throw<InvalidOperationException>().WithMessage("*uncommitted changes*");
+        File.ReadAllText(Path.Combine(worktree.Path, "A.cs")).Should().NotContain("uncommitted");
+    }
+
+    [Fact]
+    public void Apply_writes_edits_into_the_worktree_only()
+    {
+        using var worktree = Create();
+
+        worktree.Apply([new Loop.Engine.Core.Model.CodeEdit("A.cs", "class A { int fixed_; }\n")]);
+
+        File.ReadAllText(Path.Combine(worktree.Path, "A.cs")).Should().Contain("fixed_");
+        File.ReadAllText(Path.Combine(_repo, "A.cs")).Should().NotContain("fixed_");
     }
 
     [Fact]
     public void Dispose_removes_the_worktree()
     {
         string path;
-        using (var worktree = FixWorktree.Create(_repo, NullLogger<FixWorktreeTests>.Instance))
+        using (var worktree = Create())
         {
             path = worktree.Path;
         }

@@ -86,7 +86,12 @@ public sealed class GitPublisher : IGitPublisher
 
         if (local.ExitCode == 0)
         {
-            throw new InvalidOperationException($"Branch '{branch}' already exists locally.");
+            // Commonly a leftover from a previous run whose remote branch was deleted.
+            // Say the command rather than the fact — the fact alone leaves an operator
+            // guessing which of the two branches is in the way.
+            throw new InvalidOperationException(
+                $"Branch '{branch}' already exists locally (but not on {_options.Remote}). " +
+                $"Probably left over from an earlier run. Remove it with: git branch -D {branch}");
         }
     }
 
