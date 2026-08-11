@@ -13,7 +13,7 @@ How the system is **designed** — what must stay true. What was *done* lives in
 Load only what your task names. The descriptions below are the selection signal — read them,
 pick, then open.
 
-## Architecture
+## [Architecture](architecture/index.md)
 
 - [Loop.Engine](architecture/loop-engine.md) — the port/adapter boundary and which project may
   reference what; the constraints encoded as **absent** interface methods (`ICoder` has no
@@ -32,20 +32,20 @@ pick, then open.
   classified security / behavioural / schema / by-design. Read before trusting the spec on any
   specific claim. Also the worked example of reporting a doc-versus-code conflict.
 
-## Decisions
+## [Decisions](decisions/index.md)
 
 - [How decisions are recorded](decisions/how-decisions-are-recorded.md) — why there are no ADR
   files, the three-part bar for writing one, and where each settled decision actually lives: the
   six ruled-out options in the roadmap, the constraints encoded in interface signatures, the
   operational defaults argued in the options classes.
 
-## Standards
+## [Standards](standards/index.md)
 
 - [How standards are enforced](standards/how-standards-are-enforced.md) — the six conventions
   that are checked by a tool rather than described in prose, what each fails on, and the two
   anti-patterns to refuse when tempted to write a style guide.
 
-## Runbooks
+## [Runbooks](runbooks/index.md)
 
 - [Running Loop.Engine](runbooks/running-loop-engine.md) — secrets and which key each model id
   needs; pointing it at a repository; a first run that cannot write anything; the four stage
