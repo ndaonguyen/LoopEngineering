@@ -1,11 +1,11 @@
 ---
-type: Index
-title: "Standards"
-description: "Map of the standards domain - conventions a tool cannot check. Everything a tool can check is enforced rather than documented; this index routes to the enforcement and states the bar for adding a document here."
+type: Convention
+title: "How standards are enforced"
+description: "The conventions checked by a tool rather than described in prose, what each one fails on, the bar for adding a written standard, and the two anti-patterns to refuse."
 status: current
 ---
 
-# Standards
+# How standards are enforced
 
 **This folder is empty on purpose.**
 
@@ -45,4 +45,4 @@ entry, or a test could carry it instead. That version cannot be ignored under de
 ## Related
 
 - Repo-wide working rules for agents: [CLAUDE.md](../../CLAUDE.md)
-- What each stack may reference: [../architecture/index.md](../architecture/index.md)
+- What each stack may reference: [CLAUDE.md § Dependency rules](../../CLAUDE.md#dependency-rules)

@@ -1,11 +1,11 @@
 ---
-type: Index
-title: "Decisions"
-description: "Map of the decisions domain - settled choices and their reasoning. No ADR files exist yet; this index names the decisions that are already argued elsewhere and where each one currently lives."
+type: Convention
+title: "How decisions are recorded"
+description: "Why this repo has no ADR files, the three-part bar for writing one, and where each settled decision actually lives - the ruled-out options in the roadmap, the constraints encoded in interface signatures, the operational defaults in the options classes."
 status: current
 ---
 
-# Decisions
+# How decisions are recorded
 
 Choices that are settled, why they were made, and what would have to change to reopen them.
 

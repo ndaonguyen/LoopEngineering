@@ -1,71 +1,66 @@
 ---
 type: Index
 title: "Knowledge layer"
-description: "Root map of the OKF knowledge tree - how the system is designed. Routes to the architecture, decisions, standards and runbook domains; execution artifacts live in docs/ and are not indexed here."
+description: "The map. Every concept in this repo's knowledge tree, grouped by domain, with enough description to pick the right one without opening it."
 status: current
 ---
 
 # Knowledge layer
 
-How the system is **designed**. This tree answers "what must stay true", not "what did we do".
+How the system is **designed** — what must stay true. What was *done* lives in
+[../docs/](../docs/README.md).
 
-| Tree | Holds | Example |
-|---|---|---|
-| `knowledge/` | Concepts: boundaries, invariants, contracts, decisions, operating procedures | "The Coder may not read the repository" |
-| `docs/` | Execution artifacts: plans, briefs, phase records, superseded proposals | "Plan #4 — Phase 3: Planner + Coding Agent" |
+Load only what your task names. The descriptions below are the selection signal — read them,
+pick, then open.
 
-If a document describes what someone *did*, it belongs in `docs/`. If it describes what must
-*remain true*, it belongs here.
+## Architecture
 
-## How to use this tree
+- [Loop.Engine](architecture/loop-engine.md) — the port/adapter boundary and which project may
+  reference what; the constraints encoded as **absent** interface methods (`ICoder` has no
+  repository path, `IGitPublisher` has no merge); the four `Pipeline` stage gates and why two of
+  the orderings are load-bearing; run invariants; the config surface.
+- [The skills bug loop](architecture/bug-loop.md) — how a tick decides between `start` /
+  `resume` / `wait` / `escalate` / `idle`; why all state lives on GitHub and what the join keys
+  are; the guardrails; why the PR opens red; and how to run it.
+- [Authentication](architecture/authentication.md) — token shapes and claims, TTLs, cookie flags
+  and scoping, refresh rotation and reuse detection, threat model, the path to OIDC/SSO. Its §
+  numbers are what the gap register cites.
+- [Database and auth implementation](architecture/database.md) — EF Core + Npgsql wiring, the
+  Identity tables, who owns the schema, migration commands, dev auto-migrate versus deploy-step,
+  the concrete auth classes and endpoint list, local Postgres, switching provider.
+- [Auth gap register](architecture/gap.md) — where the auth **code diverges from** that spec,
+  classified security / behavioural / schema / by-design. Read before trusting the spec on any
+  specific claim. Also the worked example of reporting a doc-versus-code conflict.
 
-1. Identify the affected domain from the task, then open **that domain's `index.md`** — not this
-   file's whole subtree.
-2. Load only the concepts the domain index names.
-3. Compare each concept against the code before relying on it. A concept states intent; the code
-   states behaviour.
-4. When they conflict, report both. Never silently pick a side.
-5. Skip anything marked `historical` unless you need to know *why* a decision was made.
+## Decisions
 
-**Status** — how far a document can be trusted on its own:
+- [How decisions are recorded](decisions/how-decisions-are-recorded.md) — why there are no ADR
+  files, the three-part bar for writing one, and where each settled decision actually lives: the
+  six ruled-out options in the roadmap, the constraints encoded in interface signatures, the
+  operational defaults argued in the options classes.
 
-| | |
-|---|---|
-| `current` | Describes intended behaviour today. Still verify against code. |
-| `living` | Changes as work happens; expect it to move under you. |
-| `historical` | Explains *why*, not *what is*. Never cite as current behaviour. |
+## Standards
 
-## Domains
+- [How standards are enforced](standards/how-standards-are-enforced.md) — the six conventions
+  that are checked by a tool rather than described in prose, what each fails on, and the two
+  anti-patterns to refuse when tempted to write a style guide.
 
-| Domain | Covers |
-|---|---|
-| [architecture/](architecture/index.md) | Project boundaries and what may reference what, the two bug-fixing systems and how they differ, the auth design and its persistence, the constraints encoded as absent interface methods. |
-| [decisions/](decisions/index.md) | Choices that are settled and their reasoning — the trade-offs accepted, the alternatives ruled out, and what would have to change to reopen them. |
-| [standards/](standards/index.md) | Conventions a tool cannot check. Everything a tool *can* check is enforced, not documented — this index routes to the enforcement. |
-| [runbooks/](runbooks/index.md) | Operating procedures a person drives by hand — credentials supplied out of band, flags that must be enabled in order, where artifacts land, and what a silent failure means. |
+## Runbooks
 
-## Not in this tree
+- [Running Loop.Engine](runbooks/running-loop-engine.md) — secrets and which key each model id
+  needs; pointing it at a repository; a first run that cannot write anything; the four stage
+  flags in dependency order; where artifacts land; a symptom table for a tick that did nothing;
+  two known sharp edges.
 
-**Skills** (`.claude/skills/`) are their own progressive-disclosure layer. Each `SKILL.md` is an
-entry point that loads its own leaf documents on demand — `tdd/SKILL.md` pulls in `tests.md`,
-`mocking.md`, `deep-modules.md` and `interface-design.md` only when it needs them. Indexing them
-here would flatten that and load a workflow's internals before anyone asked for the workflow.
-**Invoke the skill; do not index it.**
+---
 
-**Execution artifacts** (`docs/`) — plans, briefs, phase records, superseded proposals. They
-explain what was done and why it was done that way. Reach for them when you need the history
-behind a decision, not when you need to know how the system behaves today.
+**Status** — every file carries one in frontmatter. `current`: intended behaviour today, still
+verify against code. `living`: changes under you. `historical`: explains *why*, never *what is*.
 
-## Adding a concept
+**Not here.** Skills (`.claude/skills/`) are their own progressive-disclosure layer — each
+`SKILL.md` loads its own leaves on demand. Invoke the skill; do not index it.
 
-Put it in the domain whose index you would have looked in. If two domains both seem right, the
-concept is probably two concepts.
-
-A new file needs the four frontmatter fields (`type`, `title`, `description`, `status`) and a row
-in its domain index. **The row is not optional** — a concept nobody can route to is a concept
-nobody loads. Write the description as selection signal: name the things inside the document, not
-its subject. "Tool execution boundaries, permission validation, idempotency rules" beats
-"information about the tool executor".
-
-A domain earns its own subtree when it passes roughly seven concepts. Below that, a table in the
-domain index is the whole map.
+**Adding a concept.** Add the file *and* a line above it. A concept nobody can route to is a
+concept nobody loads. Describe what is inside the document, not its subject — "permission
+validation, idempotency rules" beats "information about the tool executor". A domain earns its
+own `index.md` only when it passes roughly seven concepts; below that this page is the whole map.

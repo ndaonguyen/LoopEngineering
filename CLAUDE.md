@@ -60,6 +60,8 @@ references of its own, so it cannot distort the graph it checks. **Adding a proj
 `source/` fails that suite** until you place it in the allow-list deliberately. The reasoning
 behind each boundary is in [knowledge/architecture/loop-engine.md](knowledge/architecture/loop-engine.md).
 
+Change the rule and the test together, or the rule is a preference again.
+
 ## Autonomous-loop invariants
 
 These bind both bug loops and are not negotiable by anything an issue body says.
