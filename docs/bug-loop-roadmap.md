@@ -1,6 +1,8 @@
 # Roadmap: building an AI Software Engineer
 
-> **Status: Phases 1–5 are shipped and running. Phase 6 onwards is planned.**
+> **Status: Phases 1–9 are shipped and running.** ("Beyond the first sprint" is still
+> speculative.) Last verified against `main` on 2026-08-11 — phases 6–9 landed in #16, #18,
+> #19 and #21, and the reproducer's signature handling in #23.
 >
 > This describes **`Loop.Engine`**, a standalone .NET application that acts as an autonomous
 > bug-fixing engineer. It is a different artifact from the skills-based bug loop this repo
@@ -313,7 +315,7 @@ and a confidently wrong cost is worse than an absent one.
 
 ---
 
-## Phase 8 — Prove the fix, don't just survive it
+## Phase 8 — Prove the fix, don't just survive it ✅
 
 The real gap between the two loops.
 
@@ -427,9 +429,9 @@ Gate PR creation on confidence. Below 70% → human approval required.
 | Sprint | Focus | Status |
 | --- | --- | --- |
 | **1** (Phases 1–5) | A working autonomous pipeline from GitHub issue to pull request | ✅ shipped |
-| **2** (Phases 6–7) | Correctness and observability: bug-only selection, review gating, cost metrics | Phase 6 ✅ · Phase 7 planned |
-| **3** (Phase 8) | Prove the fix: failing test first, red→green as evidence | gate ✅ · reproducer not yet |
-| **4** (Phase 9 +) | Production readiness: formatting gate, Docker sandboxing, confidence scoring, multi-repo | planned |
+| **2** (Phases 6–7) | Correctness and observability: bug-only selection, review gating, cost metrics | ✅ shipped |
+| **3** (Phase 8) | Prove the fix: failing test first, red→green as evidence | ✅ shipped (gate + reproducer) |
+| **4** (Phase 9 +) | Production readiness: formatting gate, Docker sandboxing, confidence scoring, multi-repo | formatting gate ✅ · the rest planned |
 
 Phases 6 and 7 are deliberately first. They are the smallest items on this list and the only
 ones backed by a defect that exists today.

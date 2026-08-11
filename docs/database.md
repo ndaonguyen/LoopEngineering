@@ -91,6 +91,10 @@ in `AuthCookies` (`LoopEngineering.Api/Security`).
   ```
 - **`ICurrentUser`** (Application port) exposes `UserId` / `IsInRole` to handlers without a
   dependency on `HttpContext`.
+- **Testing** — integration tests bypass the real scheme by default with a header-driven
+  `TestAuthHandler` (`TestWebAppFactory.UseTestAuthentication`, virtual, defaults to `true`);
+  override it to `false` to exercise the genuine pipeline. `AuthEndpointsTests` (over
+  `JwtTestFactory`) runs the real cookie/JWT flow end to end.
 
 **Dev admin** — set in `appsettings.Development.json` (`Seed:Admin:Email` / `Password`);
 `DbInitializer` creates the user and assigns the `admin` role on startup.
