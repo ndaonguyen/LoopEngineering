@@ -60,11 +60,13 @@ public sealed class ReproducerAgent : IReproducer
         // that have nothing to do with the bug.
         var exemplars = _retriever.Retrieve(["Tests"]).Take(2).ToList();
 
+        var supporting = SupportingTypes(files, exemplars);
+
         List<ChatMessage> messages =
         [
             new(ChatRole.System, ReproducerPrompt.System),
             new(ChatRole.User, ReproducerPrompt.User(
-                issue, analysis, plan, [.. files, .. exemplars], _verification.TestProject)),
+                issue, analysis, plan, files, supporting, exemplars, _verification.TestProject)),
         ];
 
         var options = new ChatOptions { MaxOutputTokens = _options.MaxOutputTokens };
@@ -99,8 +101,62 @@ public sealed class ReproducerAgent : IReproducer
             return null;
         }
 
+        var path = TestFilePath.InsideProject(reply.Path, _verification.TestProject);
+
+        if (!string.Equals(path, reply.Path, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "Reproduction test was addressed to '{Proposed}', which no project compiles. " +
+                "Writing it to '{Relocated}' instead.", reply.Path, path);
+        }
+
         _logger.LogInformation("Reproduction test for #{Number}: {Name}", issue.Number, name);
 
-        return new ReproductionTest(reply.Path, reply.Contents, name);
+        return new ReproductionTest(path, reply.Contents, name);
     }
+
+    /// <summary>
+    /// The declarations of types the test will have to construct.
+    ///
+    /// Two runs died here before this existed — <c>CS7036</c> for a record the model had
+    /// never seen, <c>CS0029</c> for a <c>string[]</c> it assumed was a list. The model was
+    /// not being careless; it was writing against signatures it had no way to read.
+    ///
+    /// Files already in the prompt are excluded, since repeating them buys nothing and the
+    /// Reproduction stage is the cheapest place in the pipeline to keep cheap.
+    /// </summary>
+    private List<RetrievedFile> SupportingTypes(
+        IReadOnlyList<RetrievedFile> files, IReadOnlyList<RetrievedFile> exemplars)
+    {
+        var wanted = files
+            .SelectMany(f => SignatureTypes.Extract(f.Excerpt))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var already = files.Concat(exemplars)
+            .Select(f => f.RelativePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var supporting = _retriever.Retrieve(wanted)
+            .Where(f => !already.Contains(f.RelativePath))
+            .Take(MaxSupportingFiles)
+            .ToList();
+
+        _logger.LogInformation(
+            "Retrieved {Count} supporting type file(s) for {Wanted} type(s) named in signatures.",
+            supporting.Count, wanted.Count);
+
+        return supporting;
+    }
+
+    /// <summary>
+    /// A cap, because retrieval scores content matches too and a common type name can drag
+    /// in half the repository. The types a single method's signature needs are few.
+    /// </summary>
+    private const int MaxSupportingFiles = 4;
 }

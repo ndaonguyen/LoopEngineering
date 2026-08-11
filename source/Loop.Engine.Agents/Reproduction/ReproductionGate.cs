@@ -87,11 +87,27 @@ public sealed class ReproductionGate
     }
 
     /// <summary>
-    /// Whether the run failed because the filter matched no tests rather than because a
-    /// test failed. Matched on the runner's own wording, which is stable across the
-    /// versions this targets.
+    /// Whether nothing actually ran.
+    ///
+    /// Decided by the reported test count first, and only then by the runner's wording. The
+    /// wording alone was not enough: a generated test once landed outside the test project,
+    /// so nothing compiled it, the filter matched nothing, <c>dotnet test</c> exited zero
+    /// without printing any of the expected phrases, and the gate concluded the test
+    /// "already passes". It had never executed. Counting what ran is a fact; matching on a
+    /// message is a hope.
     /// </summary>
-    private static bool MatchedNothing(BuildResult result) =>
-        result.RawOutput.Contains("No test matches", StringComparison.OrdinalIgnoreCase)
-        || result.RawOutput.Contains("No test is available", StringComparison.OrdinalIgnoreCase);
+    private static bool MatchedNothing(BuildResult result)
+    {
+        if (BuildOutputParser.TryReadTestTotal(result.RawOutput) is { } total)
+        {
+            return total == 0;
+        }
+
+        // Falling back to the wording only when there is no count at all. Treating "no
+        // summary" as "nothing ran" was tried and was worse: it turned a legitimate
+        // single-test pass into a TestNotFound, which is the one rejection that stops the
+        // gate ever reporting the dangerous case again.
+        return result.RawOutput.Contains("No test matches", StringComparison.OrdinalIgnoreCase)
+            || result.RawOutput.Contains("No test is available", StringComparison.OrdinalIgnoreCase);
+    }
 }
