@@ -25,7 +25,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
 
         // RBAC-only: drop the Identity tables this template never uses. Claims-based authz,
         // external/social logins, and the user-token store (2FA / reset / email-confirm) are all
-        // out of scope — see docs/authentication.md.
+        // out of scope — see knowledge/architecture/authentication.md.
         modelBuilder.Ignore<IdentityUserClaim<string>>();
         modelBuilder.Ignore<IdentityRoleClaim<string>>();
         modelBuilder.Ignore<IdentityUserLogin<string>>();

@@ -9,7 +9,7 @@ status: historical
 
 > **Status: proposal, not adopted.** This is an externally-sourced design for building the
 > bug loop as a standalone multi-agent .NET system. It is recorded here for reference and
-> comparison against what this repo actually implements — see [`bug-loop.md`](bug-loop.md)
+> comparison against what this repo actually implements — see [`bug-loop.md`](../knowledge/architecture/bug-loop.md)
 > for the shipped design. Nothing in this document describes current behaviour.
 >
 > **Phased delivery plan:** [`bug-loop-roadmap.md`](bug-loop-roadmap.md).

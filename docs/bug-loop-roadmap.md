@@ -13,7 +13,7 @@ status: living
 >
 > This describes **`Loop.Engine`**, a standalone .NET application that acts as an autonomous
 > bug-fixing engineer. It is a different artifact from the skills-based bug loop this repo
-> also runs — see [`bug-loop.md`](bug-loop.md) for that. Architecture background lives in
+> also runs — see [`bug-loop.md`](../knowledge/architecture/bug-loop.md) for that. Architecture background lives in
 > [`bug-loop-proposal.md`](bug-loop-proposal.md).
 >
 > The two coexist deliberately: the skills loop is the day-to-day baseline, this is the

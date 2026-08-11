@@ -17,10 +17,10 @@ template and scaffold renamed copies.
 - **React SPA** — `source/LoopEngineering.Api/ClientApp`, Vite + React 19, served by the API. Optional
   (drop it with `--client-framework none`).
 - **Database** — PostgreSQL via EF Core; schema owned by EF Core migrations, `docker-compose` for
-  local Postgres. See [docs/database.md](docs/database.md).
+  local Postgres. See [knowledge/architecture/database.md](knowledge/architecture/database.md).
 - **Auth** — JWT in `httpOnly` cookies (access + rotated refresh), ASP.NET Core Identity user
   store, role-based (RBAC). `/api/auth/*` endpoints + `/api/profile/me`; `ICurrentUser` port. See
-  [docs/authentication.md](docs/authentication.md) and [docs/database.md](docs/database.md#authentication--authorization).
+  [knowledge/architecture/authentication.md](knowledge/architecture/authentication.md) and [knowledge/architecture/database.md](knowledge/architecture/database.md#authentication--authorization).
 - **Tests** — `tests/`, xUnit + AwesomeAssertions, unit + integration coverage (incl. 401/403).
 - **CI** (`.github/workflows/ci.yaml`) — GitVersion, restore, build, test + coverage.
 - **PR lint** (`.github/workflows/pr-lint.yml`) — Conventional-Commit PR-title check.
@@ -104,7 +104,7 @@ curl -c cookies.txt -X POST "http://localhost:5080/api/auth/login" \
 curl -b cookies.txt http://localhost:5080/api/widgets   # 200; POST needs the admin role
 ```
 
-Full guide — migrations, auth, CI/CD, switching provider: **[docs/database.md](docs/database.md)**.
+Full guide — migrations, auth, CI/CD, switching provider: **[knowledge/architecture/database.md](knowledge/architecture/database.md)**.
 
 ## Use it as a `dotnet new` template
 
@@ -121,7 +121,7 @@ dotnet new ai-service -n PaymentsApi --client-framework none  # Web API only
 A skeleton `deploy.yaml` (manual `workflow_dispatch`) builds + pushes the image to GHCR, applies EF
 Core migrations (`dotnet ef database update`, connection from the `DB_CONNECTION_STRING` secret),
 then hits a placeholder roll-out job — wire in your target (ECS, k8s, App Runner, Cloud Run).
-Nothing deploys on push/PR; CI stays light. See **[docs/database.md](docs/database.md)** for the
+Nothing deploys on push/PR; CI stays light. See **[knowledge/architecture/database.md](knowledge/architecture/database.md)** for the
 migrate-then-roll-out flow.
 
 ## Conventions

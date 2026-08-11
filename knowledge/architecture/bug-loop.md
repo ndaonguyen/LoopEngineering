@@ -73,7 +73,7 @@ Monday's in-session run left off.
 ### Memory, in the repo
 
 That state is *disposable* — it dies when the PR merges. The durable half is
-[`docs/bug-loop-learnings.md`](bug-loop-learnings.md): test seams that were non-obvious,
+[`docs/bug-loop-learnings.md`](../../docs/bug-loop-learnings.md): test seams that were non-obvious,
 hypotheses that were plausible and wrong, error messages that point away from their
 cause. Step 4 reads it before diagnosing; Step 8 appends to it after fixing.
 

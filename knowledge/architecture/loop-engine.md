@@ -12,9 +12,12 @@ reproduce → code → verify → review → publish**. It stops at an open pull
 merges** — and no interface in the system can express a merge.
 
 This document covers boundaries, invariants, and the reasoning that is not visible in a
-signature. It does not list classes; the code does that better. For *why each phase was
-built*, see [bug-loop-roadmap.md](bug-loop-roadmap.md). For the skills-based loop that does the
-same job in prompts rather than C#, see [bug-loop.md](bug-loop.md).
+signature. It does not list classes; the code does that better.
+
+- **To run it**, see [running-loop-engine.md](../runbooks/running-loop-engine.md).
+- For *why each phase was built*, see [bug-loop-roadmap.md](../../docs/bug-loop-roadmap.md).
+- For the skills-based loop that does the same job in prompts rather than C#, see
+  [bug-loop.md](bug-loop.md).
 
 ---
 
@@ -42,7 +45,7 @@ model's output become an API call with nothing in between.
 **`Worker/Pipeline` is the only place stages are composed.** If two components need to know
 about each other's order, that knowledge belongs in `IssuePollingService`, not in either one.
 
-[tests/Architecture.Tests](../tests/Architecture.Tests/ArchitectureTests.cs) enforces all three
+[tests/Architecture.Tests](../../tests/Architecture.Tests/ArchitectureTests.cs) enforces all three
 rules by parsing the `.csproj` files. It holds no project references of its own — a test project
 that referenced everything in order to inspect everything would be the one edge the graph could
 never see. Adding a project under `source/` fails that suite until it is placed in the
@@ -148,6 +151,6 @@ reported in one readable line — not forty frames of DI internals.
 
 Recorded because each looks like an obvious improvement and each would undo something paid for.
 The full list with reasoning is in
-[bug-loop-roadmap.md](bug-loop-roadmap.md#deliberately-not-doing): concurrent issues, raising
+[bug-loop-roadmap.md](../../docs/bug-loop-roadmap.md#deliberately-not-doing): concurrent issues, raising
 `MaxAttempts`, letting the loop merge, merging the two loops, letting the model choose which
 files to read, and a second source of truth about the working tree.

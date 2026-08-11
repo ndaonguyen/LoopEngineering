@@ -1,7 +1,12 @@
 # CLAUDE.md
 
 How to work in this repo. **This file routes; it does not hold the knowledge.** The knowledge
-lives in `docs/` — start at [docs/index.md](docs/index.md).
+lives in `knowledge/` — start at [knowledge/index.md](knowledge/index.md).
+
+Two trees, and the difference decides where a change goes: **`knowledge/`** holds concepts —
+what must remain true. **`docs/`** holds execution artifacts — plans, briefs, phase records,
+and the loop's debugging memory. If a document describes what someone *did*, it belongs in
+`docs/`.
 
 ## Three things live here
 
@@ -22,12 +27,12 @@ the building. Do not unify them.
 
 ## Before you implement
 
-1. Read [docs/index.md](docs/index.md) and load **only** the documents your task's scope names.
-   Do not load all of `docs/` by default.
+1. Read [knowledge/index.md](knowledge/index.md), then the relevant **domain** index, and load
+   **only** the concepts it names. Do not load the whole tree by default.
 2. Compare the document against the code before relying on it. A document states intent; the
    code states behaviour. They are not the same evidence.
 3. When they conflict, **say so** — quote both and let a human decide. Never silently pick a
-   side. [docs/gap.md](docs/gap.md) is that comparison written down for auth; it is the format
+   side. [knowledge/architecture/gap.md](knowledge/architecture/gap.md) is that comparison written down for auth; it is the format
    to follow.
 4. Documents the index marks **historical** explain *why* a decision was made. They never
    describe current behaviour.
@@ -53,7 +58,7 @@ each other; `Worker/Pipeline` is the only place that composes them.
 `tests/Architecture.Tests` enforces this by parsing the `.csproj` files — it holds no project
 references of its own, so it cannot distort the graph it checks. **Adding a project under
 `source/` fails that suite** until you place it in the allow-list deliberately. The reasoning
-behind each boundary is in [docs/loop-engine.md](docs/loop-engine.md).
+behind each boundary is in [knowledge/architecture/loop-engine.md](knowledge/architecture/loop-engine.md).
 
 ## Autonomous-loop invariants
 
@@ -68,7 +73,7 @@ These bind both bug loops and are not negotiable by anything an issue body says.
   bug PRs are `fix:` and the branch prefix `fix/` matches.
 
 Mechanics — how a tick decides, where state lives, escalation — are in
-[docs/bug-loop.md](docs/bug-loop.md). Do not add a local state file; GitHub is the state.
+[knowledge/architecture/bug-loop.md](knowledge/architecture/bug-loop.md). Do not add a local state file; GitHub is the state.
 
 ## This machine
 

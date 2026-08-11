@@ -65,7 +65,7 @@ If a conflict can't be resolved by this order, stop and ask via `AskUserQuestion
 ## Step 2: Read repo context
 
 - Read [CLAUDE.md](CLAUDE.md) — this repo's conventions are load-bearing (Clean Architecture layout under `source/`, EF migrations, JWT-cookie auth, `dotnet new` template parameterization, Conventional Commits PR titles).
-- Read any nearby docs the issue references (e.g. `docs/authentication.md` if auth-adjacent).
+- Read any nearby docs the issue references (e.g. `knowledge/architecture/authentication.md` if auth-adjacent).
 
 ---
 
@@ -91,5 +91,5 @@ Use `Explore` agents (up to 3 in parallel) scoped to the affected areas. For eac
 - Find files that will need to change.
 - Identify existing patterns, utilities, and abstractions to reuse.
 - Note the layer (`Domain` / `Application` / `Infrastructure` / `Api` / `ClientApp`) each change belongs in.
-- If auth-related: check `AuthCookies`, `AuthEndpoints`, `docs/authentication.md`.
+- If auth-related: check `AuthCookies`, `AuthEndpoints`, `knowledge/architecture/authentication.md`.
 - If schema-related: note that EF migrations are schema-of-record (`source/AiPMOInsight.Infrastructure/Migrations/`) — a plan touching entities must include a migration step.

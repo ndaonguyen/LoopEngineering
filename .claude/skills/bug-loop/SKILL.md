@@ -125,7 +125,7 @@ These hold on every tick, including unattended ones:
 
 - **Interval, this session:** `/loop 30m /bug-loop`
 - **Self-paced:** `/loop /bug-loop` — waits longer when idle, sooner when CI is pending.
-- **Unattended, on a schedule:** see `docs/bug-loop.md`.
+- **Unattended, on a schedule:** see `knowledge/architecture/bug-loop.md`.
 
 Interval guidance: shorter than ~10 minutes mostly produces `wait` ticks, since CI on
 this repo takes a few minutes. 30 minutes is a sane default.

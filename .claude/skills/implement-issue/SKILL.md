@@ -50,7 +50,7 @@ Accept a URL or bare number. Then:
 ## Step 2: Load repo context
 
 - Read [CLAUDE.md](CLAUDE.md).
-- If the plan is auth-adjacent, read [docs/authentication.md](docs/authentication.md).
+- If the plan is auth-adjacent, read [knowledge/architecture/authentication.md](knowledge/architecture/authentication.md).
 - Read `docs/inputs/<n>-*.md` if present (extra constraints).
 
 ---
