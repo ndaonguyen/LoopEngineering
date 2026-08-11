@@ -65,6 +65,36 @@ public static class BuildOutputParser
     public static bool Succeeded(string output, int exitCode) =>
         exitCode == 0 && ParseErrors(output).Count == 0 && !FailureSummary.IsMatch(output);
 
+    // "Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: ..."
+    private static readonly Regex TestTotal = new(
+        @"\bTotal:\s*(?<total>\d+)",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// How many tests actually ran, or null when the output carries no summary.
+    ///
+    /// Needed because a filter matching nothing is not reliably distinguishable from a
+    /// passing run by exit code or by wording. A real run produced exactly that: the
+    /// generated test landed outside the test project, so nothing compiled it, the filter
+    /// matched nothing, <c>dotnet test</c> reported success, and the red gate concluded the
+    /// test "already passes" — a confident diagnosis of a test that had never executed.
+    ///
+    /// Counting what ran is the fact; everything else was inference.
+    /// </summary>
+    public static int? TryReadTestTotal(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return null;
+        }
+
+        var match = TestTotal.Match(output);
+
+        return match.Success && int.TryParse(match.Groups["total"].Value, out var total)
+            ? total
+            : null;
+    }
+
     // C:\path\to\File.cs(41,29): error CS7036: …
     private static readonly Regex ErrorFile = new(
         @"^\s*(?<file>(?:[A-Za-z]:\\|/)[^(\r\n]+?)\(\d+,\d+\):\s*error\s",

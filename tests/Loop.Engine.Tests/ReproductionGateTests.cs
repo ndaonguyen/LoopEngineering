@@ -43,7 +43,8 @@ public class ReproductionGateTests
         // would carry a proof of nothing.
         var runner = new FakeBuildRunner([BuildResult.Success()])
         {
-            FilteredResult = BuildResult.Success("Passed! - Failed: 0, Passed: 1"),
+            FilteredResult = BuildResult.Success(
+                "Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1"),
         };
         using var workspace = new FakeFixWorkspace();
 
@@ -82,6 +83,43 @@ public class ReproductionGateTests
 
         result.IsRed.Should().BeFalse();
         result.Outcome.Should().Be(ReproductionOutcome.TestNotFound);
+    }
+
+    [Fact]
+    public async Task A_run_where_nothing_executed_is_not_a_pass()
+    {
+        // The real failure this caught: the generated test landed outside the test project,
+        // so nothing compiled it, the filter matched nothing, and `dotnet test` exited zero
+        // WITHOUT printing "No test matches". The gate reported AlreadyPasses — a confident
+        // diagnosis of a test that had never run. The count is the fact; the wording was a
+        // hope.
+        var runner = new FakeBuildRunner([BuildResult.Success()])
+        {
+            FilteredResult = BuildResult.Success(
+                "Passed!  - Failed:     0, Passed:     0, Skipped:     0, Total:     0"),
+        };
+        using var workspace = new FakeFixWorkspace();
+
+        var result = await Gate(runner).RunAsync(ATest(), workspace);
+
+        result.Outcome.Should().Be(ReproductionOutcome.TestNotFound);
+    }
+
+    [Fact]
+    public async Task A_genuine_pass_of_one_test_is_still_AlreadyPasses()
+    {
+        // Guard against over-correcting: a real single-test pass must not be misread as
+        // "nothing ran", or the gate would never reject the dangerous case again.
+        var runner = new FakeBuildRunner([BuildResult.Success()])
+        {
+            FilteredResult = BuildResult.Success(
+                "Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1"),
+        };
+        using var workspace = new FakeFixWorkspace();
+
+        var result = await Gate(runner).RunAsync(ATest(), workspace);
+
+        result.Outcome.Should().Be(ReproductionOutcome.AlreadyPasses);
     }
 
     [Fact]

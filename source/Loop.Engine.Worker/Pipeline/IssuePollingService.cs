@@ -297,8 +297,55 @@ public sealed class IssuePollingService : BackgroundService
         {
             var test = await _reproducer.WriteFailingTestAsync(issue, analysis, plan, cancellationToken);
 
-            return await _gate.RunAsync(test, worktree, cancellationToken);
+            var result = await _gate.RunAsync(test, worktree, cancellationToken);
+
+            await WriteReproductionAsync(issue, result, cancellationToken);
+
+            return result;
         }
+    }
+
+    /// <summary>
+    /// Saves the candidate test, whether it passed the gate or not.
+    ///
+    /// A rejected test is discarded with the worktree, which left a rejection message naming
+    /// a file nobody could read — and "it passes against the unfixed code" is not a
+    /// diagnosis anyone can act on without seeing what it asserted. The other stages all
+    /// leave an artifact behind; this one should too.
+    /// </summary>
+    private async Task WriteReproductionAsync(
+        Issue issue, ReproductionResult result, CancellationToken cancellationToken)
+    {
+        if (result.Test is not { } test)
+        {
+            return;
+        }
+
+        var directory = Path.GetFullPath(_investigation.OutputDirectory);
+        Directory.CreateDirectory(directory);
+
+        // Markdown, not `.cs`. The output directory sits inside a project by default, so a
+        // `.cs` artifact is picked up by the compiler and breaks the very build it is
+        // reporting on — which is exactly what the first version of this did.
+        var contents =
+            $"""
+             # Reproduction test — #{issue.Number}
+
+             **Outcome:** {result.Outcome}
+
+             {result.Detail}
+
+             Written to `{test.RelativePath}`.
+
+             ```csharp
+             {test.Contents}
+             ```
+             """;
+
+        var path = Path.Combine(directory, $"reproduction-{issue.Number}.md");
+        await File.WriteAllTextAsync(path, contents, cancellationToken);
+
+        Console.WriteLine($"Reproduction test for #{issue.Number} -> {path}");
     }
 
     /// <summary>

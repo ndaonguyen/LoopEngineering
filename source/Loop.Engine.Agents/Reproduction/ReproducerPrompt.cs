@@ -64,6 +64,8 @@ public static class ReproducerPrompt
         AnalysisResult analysis,
         FixPlan plan,
         IReadOnlyList<RetrievedFile> files,
+        IReadOnlyList<RetrievedFile> supportingTypes,
+        IReadOnlyList<RetrievedFile> exemplars,
         string? testProject)
     {
         var prompt = new StringBuilder();
@@ -108,28 +110,77 @@ public static class ReproducerPrompt
 
         foreach (var file in files)
         {
-            prompt.AppendLine($"## {file.RelativePath}");
+            AppendFile(prompt, file);
+        }
+
+        if (supportingTypes.Count > 0)
+        {
+            // The signatures the test has to satisfy. Without these the model guesses at
+            // constructors it has never seen, and the gate rejects a test that fails to
+            // compile for reasons unrelated to the bug.
+            prompt.AppendLine("# Types you will need to construct, as they are actually declared");
             prompt.AppendLine();
-            prompt.AppendLine("```csharp");
-            prompt.AppendLine(file.Excerpt);
-            prompt.AppendLine("```");
+            prompt.AppendLine(
+                "Use these exact constructors, parameter names, and types. Do not guess at a " +
+                "shape that looks reasonable — if a parameter is `string[]`, it is not a `List<string>`.");
             prompt.AppendLine();
+
+            foreach (var file in supportingTypes)
+            {
+                AppendFile(prompt, file);
+            }
+        }
+
+        if (exemplars.Count > 0)
+        {
+            prompt.AppendLine("# Existing tests, for conventions only");
+            prompt.AppendLine();
+            prompt.AppendLine(
+                "Match the framework, assertion library, namespace, and naming style used here. " +
+                "Do not copy what they test.");
+            prompt.AppendLine();
+
+            foreach (var file in exemplars)
+            {
+                AppendFile(prompt, file);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(testProject))
         {
-            prompt.AppendLine($"# Where the test goes");
+            prompt.AppendLine("# Where the test goes");
             prompt.AppendLine();
             prompt.AppendLine(
                 $"The suite that will run it is `{testProject}`. Put the file inside that " +
                 "project's directory and use its namespace.");
+            prompt.AppendLine();
+            prompt.AppendLine(
+                "Name the file after the type under test: a bug in `SymbolExtractor` goes in " +
+                "`SymbolExtractorTests.cs`. Never name the file after the project or after the " +
+                "bug — `Loop.Engine.Tests.cs` and `TheBugTests.cs` are both wrong.");
             prompt.AppendLine();
         }
 
         prompt.AppendLine(
             "Write the one test that fails today because of this bug, and would pass once " +
             "it is fixed.");
+        prompt.AppendLine();
+        prompt.AppendLine(
+            "Name it for the behaviour that should hold, not the behaviour that does. If the " +
+            "bug is that single-word names are dropped, the test is " +
+            "`Extract_returns_a_single_word_type_name` — never `..._does_not_return_...`, " +
+            "which describes the defect you are supposed to be catching.");
 
         return prompt.ToString();
+    }
+
+    private static void AppendFile(StringBuilder prompt, RetrievedFile file)
+    {
+        prompt.AppendLine($"## {file.RelativePath}");
+        prompt.AppendLine();
+        prompt.AppendLine("```csharp");
+        prompt.AppendLine(file.Excerpt);
+        prompt.AppendLine("```");
+        prompt.AppendLine();
     }
 }
