@@ -23,7 +23,7 @@ public static class SymbolExtractor
 
     // Bare PascalCase words — the weakest signal, so ranked last.
     private static readonly Regex PascalCase = new(
-        @"\b(?<word>[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b",
+        @"\b(?<word>[A-Z][a-z0-9]{2,}|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+)\b",
         RegexOptions.Compiled);
 
     /// <summary>
