@@ -1,3 +1,10 @@
+---
+type: Service Architecture
+title: "The bug loop (skills)"
+description: "How a tick decides, why all state lives on GitHub and what the join keys are, the guardrails, the cloud-routine schedule and env-var config, and the design rationale."
+status: current
+---
+
 # The Bug Loop
 
 An autonomous loop that watches this repo's GitHub issues, and for anything that is

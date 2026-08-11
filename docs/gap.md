@@ -1,3 +1,10 @@
+---
+type: Divergence Register
+title: "Auth implementation - gap register"
+description: "Where the auth code diverges from authentication.md, each gap classified security / behavioural / schema / by-design. Also the worked example of how to report a doc-versus-code conflict."
+status: living
+---
+
 # Auth Implementation — Gap Register
 
 Tracks divergence between the **code** and the design spec in [authentication.md](authentication.md).

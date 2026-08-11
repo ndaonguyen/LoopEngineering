@@ -1,3 +1,10 @@
+---
+type: Planning Brief
+title: "Input #4 - Phase 3: Planner + Coding Agent"
+description: "The brief that produced plan #4 - constraints, non-goals and ruled-out approaches, as they stood at the time."
+status: historical
+---
+
 # Input: #4 — Phase 3: Planner + Coding Agent
 
 ## Issue

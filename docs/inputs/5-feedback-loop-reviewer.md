@@ -1,3 +1,10 @@
+---
+type: Planning Brief
+title: "Input #5 - Phase 4: Feedback loop + Reviewer Agent"
+description: "The brief that produced plan #5 - constraints, non-goals and ruled-out approaches, as they stood at the time."
+status: historical
+---
+
 # Input: #5 — Phase 4: Feedback loop + Reviewer Agent
 
 ## Issue

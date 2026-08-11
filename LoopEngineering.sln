@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Loop.Engine.Agents", "sourc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Loop.Engine.Tests", "tests\Loop.Engine.Tests\Loop.Engine.Tests.csproj", "{441B5839-5E9D-4C7E-98E1-90557E009CB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Architecture.Tests", "tests\Architecture.Tests\Architecture.Tests.csproj", "{0ECB8273-39BA-488C-9166-F6C40DB686F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -185,6 +187,18 @@ Global
 		{441B5839-5E9D-4C7E-98E1-90557E009CB9}.Release|x64.Build.0 = Release|Any CPU
 		{441B5839-5E9D-4C7E-98E1-90557E009CB9}.Release|x86.ActiveCfg = Release|Any CPU
 		{441B5839-5E9D-4C7E-98E1-90557E009CB9}.Release|x86.Build.0 = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|x64.Build.0 = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Debug|x86.Build.0 = Debug|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|x64.ActiveCfg = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|x64.Build.0 = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|x86.ActiveCfg = Release|Any CPU
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -202,5 +216,6 @@ Global
 		{9B9E0AF6-CE91-4691-AF65-F004699E7B29} = {B8EFCA5F-814F-285C-A8CB-F00F14650265}
 		{4F23C03F-CFC0-4977-92BC-4641C73F35BB} = {B8EFCA5F-814F-285C-A8CB-F00F14650265}
 		{441B5839-5E9D-4C7E-98E1-90557E009CB9} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{0ECB8273-39BA-488C-9166-F6C40DB686F0} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

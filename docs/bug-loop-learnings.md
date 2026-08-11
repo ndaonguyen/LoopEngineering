@@ -1,3 +1,10 @@
+---
+type: Debugging Memory
+title: "Bug-loop learnings"
+description: "Cross-issue debugging memory - non-obvious test seams, plausible-but-wrong hypotheses, errors that point away from their cause. Read before diagnosing, appended after fixing. Not a changelog."
+status: living
+---
+
 # Bug Loop Learnings
 
 What the loop has learned about **debugging this codebase** — read before diagnosing,

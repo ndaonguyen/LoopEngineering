@@ -1,3 +1,10 @@
+---
+type: Design Spec
+title: "Authentication and authorization"
+description: "Token shapes and claims, TTLs, cookie flags and scoping, refresh rotation and reuse detection, threat model, and the path to OIDC/SSO. The section numbers here are what gap.md refers to."
+status: current
+---
+
 # RFC: JWT-Based Authentication & Token Management
 
 **Status:** Accepted  

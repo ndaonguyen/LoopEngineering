@@ -1,3 +1,10 @@
+---
+type: Implementation Plan
+title: "Plan #6 - Phase 5: GitHub automation, issue to open PR"
+description: "The section-by-section implementation plan for issue #6. Shipped - useful for the reasoning behind a decision, useless as a description of the code."
+status: historical
+---
+
 # Plan: #6 — Phase 5: GitHub automation, issue to open PR
 
 Issue: <https://github.com/ndaonguyen/LoopEngineering/issues/6>

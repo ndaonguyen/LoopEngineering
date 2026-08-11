@@ -1,3 +1,10 @@
+---
+type: Planning Brief
+title: "Input #3 - Phase 2: Investigation Agent"
+description: "The brief that produced plan #3 - constraints, non-goals and ruled-out approaches, as they stood at the time."
+status: historical
+---
+
 # Input: #3 — Phase 2: Investigation Agent
 
 ## Issue

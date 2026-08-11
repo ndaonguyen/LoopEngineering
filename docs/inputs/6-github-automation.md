@@ -1,3 +1,10 @@
+---
+type: Planning Brief
+title: "Input #6 - Phase 5: GitHub automation, issue to open PR"
+description: "The brief that produced plan #6 - constraints, non-goals and ruled-out approaches, as they stood at the time."
+status: historical
+---
+
 # Input: #6 — Phase 5: GitHub automation, issue to open PR
 
 ## Issue

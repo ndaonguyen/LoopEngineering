@@ -1,3 +1,10 @@
+---
+type: Implementation Guide
+title: "Database and auth"
+description: "EF Core + Npgsql wiring, the Identity tables, migration commands and schema ownership, dev auto-migrate versus deploy-step migration, the concrete auth implementation, and switching provider."
+status: current
+---
+
 # Database & Auth
 
 PostgreSQL persistence via **EF Core + Npgsql**. EF Core owns both runtime queries and the schema

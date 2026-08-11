@@ -1,3 +1,10 @@
+---
+type: Proposal
+title: "Proposal - autonomous bug-fixing engineer"
+description: "An externally-sourced multi-agent design, recorded for comparison. Explicitly not adopted and describes nothing that runs. See loop-engine.md for the shipped architecture."
+status: historical
+---
+
 # Proposal: Autonomous Bug-Fixing Engineer (multi-agent .NET architecture)
 
 > **Status: proposal, not adopted.** This is an externally-sourced design for building the

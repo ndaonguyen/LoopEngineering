@@ -7,12 +7,18 @@ lives in `docs/` — start at [docs/index.md](docs/index.md).
 
 | | What it is | Where |
 |---|---|---|
-| **The template** | A Clean-Architecture .NET service packaged as `dotnet new ai-service` (`.template.config/template.json`, `sourceName: LoopEngineering`). Vertical-slice CQRS over a lightweight in-process mediator (no MediatR), optional React + Vite SPA, a Widgets slice, `/health`. | `source/LoopEngineering.*`, `tests/LoopEngineering.*` |
+| **The template** | A Clean-Architecture .NET service — vertical-slice CQRS over a lightweight in-process mediator (no MediatR), React + Vite SPA, a Widgets slice, EF Core + Postgres, cookie-JWT auth, `/health`. | `source/LoopEngineering.*`, `tests/LoopEngineering.*` |
 | **Loop.Engine** | An autonomous bug-fixing engineer: a .NET worker that polls GitHub issues and drives one through investigate → plan → reproduce → code → verify → review → PR. **This is where active work is happening.** | `source/Loop.Engine.*`, `tests/Loop.Engine.Tests` |
 | **The skills bug loop** | The same job done by Claude Code skills instead of C#. The day-to-day baseline. | `.claude/skills/bug-loop`, `.claude/skills/fix-bug-issue`, `scripts/bug-loop/` |
 
 The two bug loops coexist deliberately — one is the product being built, one is the tool doing
 the building. Do not unify them.
+
+> **Open conflict.** [README.md](README.md) documents this as a `dotnet new ai-service`
+> template with a `--client-framework` parameter. There is no `.template.config/` in the repo
+> and never has been (no git history for it), and no `#if UseApiOnly` markers in `source/`.
+> Those commands cannot work as written. Treat the packaging as **not built** until someone
+> decides whether to add it or drop the claim.
 
 ## Before you implement
 
@@ -44,7 +50,10 @@ keep it that way. `Loop.Engine.Core/Abstractions` owns the ports (`IInvestigator
 `IPullRequestPublisher`, `IFixWorkspace`); `Agents` and `GitHub` implement them and never call
 each other; `Worker/Pipeline` is the only place that composes them.
 
-> Nothing enforces this yet — there is no architecture test. Until there is, it is on you.
+`tests/Architecture.Tests` enforces this by parsing the `.csproj` files — it holds no project
+references of its own, so it cannot distort the graph it checks. **Adding a project under
+`source/` fails that suite** until you place it in the allow-list deliberately. The reasoning
+behind each boundary is in [docs/loop-engine.md](docs/loop-engine.md).
 
 ## Autonomous-loop invariants
 

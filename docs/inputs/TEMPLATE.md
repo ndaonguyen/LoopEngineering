@@ -1,3 +1,10 @@
+---
+type: Template
+title: "Input template"
+description: "The brief format /plan-issue expects - issue restatement, design links, brainstorming, constraints and non-goals. Copy it to start a new one, and replace this frontmatter."
+status: current
+---
+
 # Input: #<issue-number> — <short title>
 
 Context `/plan-issue` needs that the GitHub issue alone doesn't carry. Copy this file to

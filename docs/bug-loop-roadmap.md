@@ -1,3 +1,10 @@
+---
+type: Delivery Record
+title: "Roadmap - building an AI Software Engineer"
+description: "What each Loop.Engine delivery phase was for and its exit criterion, what the first real runs exposed, and the list of things deliberately not being done. Phases 1-9 are shipped."
+status: living
+---
+
 # Roadmap: building an AI Software Engineer
 
 > **Status: Phases 1–9 are shipped and running.** ("Beyond the first sprint" is still

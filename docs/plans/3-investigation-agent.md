@@ -1,3 +1,10 @@
+---
+type: Implementation Plan
+title: "Plan #3 - Phase 2: Investigation Agent"
+description: "The section-by-section implementation plan for issue #3. Shipped - useful for the reasoning behind a decision, useless as a description of the code."
+status: historical
+---
+
 # Plan: #3 — Phase 2: Investigation Agent
 
 Issue: <https://github.com/ndaonguyen/LoopEngineering/issues/3>
