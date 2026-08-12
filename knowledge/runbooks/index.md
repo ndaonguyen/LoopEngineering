@@ -27,7 +27,6 @@ Some procedures sit beside the design they operate, because the guardrails and t
 read together:
 
 - **Running the skills bug loop** — [../architecture/bug-loop.md § Running it](../architecture/bug-loop.md#running-it)
-- **Local Postgres, migrations, deploy** — [../architecture/database.md](../architecture/database.md)
 - **Build and test commands** — [../../README.md](../../README.md)
 
 ---

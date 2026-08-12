@@ -64,8 +64,9 @@ If a conflict can't be resolved by this order, stop and ask via `AskUserQuestion
 
 ## Step 2: Read repo context
 
-- Read [CLAUDE.md](CLAUDE.md) — this repo's conventions are load-bearing (Clean Architecture layout under `source/`, EF migrations, JWT-cookie auth, `dotnet new` template parameterization, Conventional Commits PR titles).
-- Read any nearby docs the issue references (e.g. `knowledge/architecture/authentication.md` if auth-adjacent).
+- Read [CLAUDE.md](CLAUDE.md) — this repo's conventions are load-bearing (two stacks under `source/`, the dependency rules and the architecture test that enforces them, EF migrations, JWT-cookie auth, Conventional Commits PR titles).
+- Read [knowledge/index.md](knowledge/index.md). From the issue's affected areas, pick the domains involved, open each domain's `index.md`, and load **only** the concepts whose descriptions match. Do not load the tree by default.
+- Where a concept and the code disagree, record both in the plan rather than picking a side.
 
 ---
 
@@ -91,5 +92,5 @@ Use `Explore` agents (up to 3 in parallel) scoped to the affected areas. For eac
 - Find files that will need to change.
 - Identify existing patterns, utilities, and abstractions to reuse.
 - Note the layer (`Domain` / `Application` / `Infrastructure` / `Api` / `ClientApp`) each change belongs in.
-- If auth-related: check `AuthCookies`, `AuthEndpoints`, `knowledge/architecture/authentication.md`.
-- If schema-related: note that EF migrations are schema-of-record (`source/AiPMOInsight.Infrastructure/Migrations/`) — a plan touching entities must include a migration step.
+- Note which layer each change belongs in: `Loop.Engine.Core` (ports and model, no references), `Agents` / `GitHub` (adapters that never call each other), `Worker` (the only composer).
+- If a change would add a port or widen one, say so explicitly — several ports are defined by what they deliberately **cannot** express, and `Architecture.Tests` fails the build on a new project reference.

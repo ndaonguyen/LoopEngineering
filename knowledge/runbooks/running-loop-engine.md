@@ -157,9 +157,15 @@ the retriever. In practice retrieval never sees it — the pipeline repoints it 
 absolute path before any stage runs — but the two rules disagree, and **an absolute path is read
 identically by both**. Worth reconciling.
 
-**`Verification:TestProject` defaults to the engine's own test project**, not the solution. A fix
-to `LoopEngineering.*` is verified against `Loop.Engine.Tests`, which will not exercise it. Set
-it per target repository.
+**`Verification:TestProject` defaults to the engine's own test project.** Correct while the
+engine fixes itself, wrong the moment it is pointed elsewhere — and it used to fail silently,
+"verifying" a fix with a suite that never touched it.
+
+That is now guarded. When `VerifyFix` is on, startup checks that
+`<Repository:RootPath>/<Verification:TestProject>` exists and **refuses to run** if it does not,
+naming the path it looked for. It costs nothing when correct and fires before the first model
+call. Set `TestProject` to empty to run the whole solution instead — that is the deliberate
+escape hatch for a target with no single test project.
 
 **Costs are only reported if you supply the rates.** `Ai:InputCostPerMillion` /
 `OutputCostPerMillion` default to `0`, which prints tokens and no money. There is no built-in

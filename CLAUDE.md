@@ -8,22 +8,19 @@ what must remain true. **`docs/`** holds execution artifacts — plans, briefs, 
 and the loop's debugging memory. If a document describes what someone *did*, it belongs in
 `docs/`.
 
-## Three things live here
+## Two things live here
 
 | | What it is | Where |
 |---|---|---|
-| **The template** | A Clean-Architecture .NET service — vertical-slice CQRS over a lightweight in-process mediator (no MediatR), React + Vite SPA, a Widgets slice, EF Core + Postgres, cookie-JWT auth, `/health`. | `source/LoopEngineering.*`, `tests/LoopEngineering.*` |
-| **Loop.Engine** | An autonomous bug-fixing engineer: a .NET worker that polls GitHub issues and drives one through investigate → plan → reproduce → code → verify → review → PR. **This is where active work is happening.** | `source/Loop.Engine.*`, `tests/Loop.Engine.Tests` |
-| **The skills bug loop** | The same job done by Claude Code skills instead of C#. The day-to-day baseline. | `.claude/skills/bug-loop`, `.claude/skills/fix-bug-issue`, `scripts/bug-loop/` |
+| **Loop.Engine** | An autonomous bug-fixing engineer: a .NET worker that polls GitHub issues and drives one through investigate → plan → reproduce → code → verify → review → PR. **The product.** | `source/Loop.Engine.*`, `tests/Loop.Engine.Tests` |
+| **The skills bug loop** | The same job done by Claude Code skills instead of C#. The day-to-day baseline, and the tool used to build the product. | `.claude/skills/bug-loop`, `.claude/skills/fix-bug-issue`, `scripts/bug-loop/` |
 
-The two bug loops coexist deliberately — one is the product being built, one is the tool doing
-the building. Do not unify them.
+They coexist deliberately — one is the product being built, one is the tool doing the building.
+Do not unify them.
 
-> **Open conflict.** [README.md](README.md) documents this as a `dotnet new ai-service`
-> template with a `--client-framework` parameter. There is no `.template.config/` in the repo
-> and never has been (no git history for it), and no `#if UseApiOnly` markers in `source/`.
-> Those commands cannot work as written. Treat the packaging as **not built** until someone
-> decides whether to add it or drop the claim.
+> The `LoopEngineering.*` service template was removed; the engine is meant to run **beside** a
+> target repository, not inside one. Its design notes are kept, marked historical, in
+> [docs/README.md](docs/README.md#the-removed-service-template).
 
 ## Before you implement
 
@@ -32,8 +29,8 @@ the building. Do not unify them.
 2. Compare the document against the code before relying on it. A document states intent; the
    code states behaviour. They are not the same evidence.
 3. When they conflict, **say so** — quote both and let a human decide. Never silently pick a
-   side. [knowledge/architecture/gap.md](knowledge/architecture/gap.md) is that comparison written down for auth; it is the format
-   to follow.
+   side. [docs/gap.md](docs/gap.md) is that comparison written down for the removed template; it
+   is still the format to follow.
 4. Documents the index marks **historical** explain *why* a decision was made. They never
    describe current behaviour.
 5. Update the affected document **in the same PR** when you change a boundary, a public
@@ -42,15 +39,14 @@ the building. Do not unify them.
 
 ## Dependency rules
 
-Both stacks point inwards. Nothing in the inner ring references anything outside it.
+The graph points inwards. Nothing in the inner ring references anything outside it.
 
 ```
-LoopEngineering.Domain ← Application ← Infrastructure ← Api
-Loop.Engine.Core       ← Agents, GitHub ← Worker ← Loop.Engine (host)
+Loop.Engine.Core ← Agents, GitHub ← Worker ← Loop.Engine (host)
 ```
 
-`LoopEngineering.Domain` and `Loop.Engine.Core` have **no project references at all** and must
-keep it that way. `Loop.Engine.Core/Abstractions` owns the ports (`IInvestigator`, `IPlanner`,
+`Loop.Engine.Core` has **no project references at all** and must keep it that way.
+`Loop.Engine.Core/Abstractions` owns the ports (`IInvestigator`, `IPlanner`,
 `ICoder`, `IReproducer`, `IReviewer`, `IBuildRunner`, `IGitPublisher`, `IIssueSource`,
 `IPullRequestPublisher`, `IFixWorkspace`); `Agents` and `GitHub` implement them and never call
 each other; `Worker/Pipeline` is the only place that composes them.

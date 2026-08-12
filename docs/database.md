@@ -2,8 +2,12 @@
 type: Implementation Guide
 title: "Database and auth"
 description: "EF Core + Npgsql wiring, the Identity tables, migration commands and schema ownership, dev auto-migrate versus deploy-step migration, the concrete auth implementation, and switching provider."
-status: current
+status: historical
 ---
+
+> **The code this describes is no longer in the repo.** The `LoopEngineering.*` service
+> template was removed when this became a Loop.Engine-only repository. Kept as the persistence and auth implementation guide,
+> reusable if that service is ever rebuilt. It describes nothing that runs here today.
 
 # Database & Auth
 

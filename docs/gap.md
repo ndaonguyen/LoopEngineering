@@ -2,8 +2,12 @@
 type: Divergence Register
 title: "Auth implementation - gap register"
 description: "Where the auth code diverges from authentication.md, each gap classified security / behavioural / schema / by-design. Also the worked example of how to report a doc-versus-code conflict."
-status: living
+status: historical
 ---
+
+> **The code this describes is no longer in the repo.** The `LoopEngineering.*` service
+> template was removed when this became a Loop.Engine-only repository. Kept as the register of where that code diverged from the spec,
+> reusable if that service is ever rebuilt. It describes nothing that runs here today.
 
 # Auth Implementation — Gap Register
 

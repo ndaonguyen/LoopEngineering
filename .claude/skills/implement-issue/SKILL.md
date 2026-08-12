@@ -42,16 +42,17 @@ Accept a URL or bare number. Then:
    - **Branch name** and **PR title** from the "Branch & PR" section.
    - Ordered list of **Changes** (with their "Pattern to mimic" snippets).
    - **Acceptance criteria** from the traceability table.
-   - Whether entities changed (migration needed).
-   - Whether template parameterization (`#if UseApiOnly`) is in scope.
+   - Whether the change touches a port in `Loop.Engine.Core/Abstractions` (a boundary change, not just an edit).
 
 ---
 
 ## Step 2: Load repo context
 
 - Read [CLAUDE.md](CLAUDE.md).
-- If the plan is auth-adjacent, read [knowledge/architecture/authentication.md](knowledge/architecture/authentication.md).
+- Read [knowledge/index.md](knowledge/index.md). From the plan's list of changes, pick the domains involved, open each domain's `index.md`, and load **only** the concepts whose descriptions match. Do not load the tree by default.
 - Read `docs/inputs/<n>-*.md` if present (extra constraints).
+
+If a concept contradicts the plan, stop and ask — the plan is the contract, but a plan written against a stale document is a contract to build the wrong thing.
 
 ---
 
@@ -81,8 +82,5 @@ For each change in the plan (in order):
 **Rules while implementing:**
 - Do not silently expand scope. If a change needs something not in the plan, stop and ask — offer to add it (with user approval) or defer as a follow-up.
 - If the plan says "no existing analogue" for a change, that's a red flag — surface it before writing the code, not after.
-- If entities changed, add the migration **once**, before the final verification pass:
-  ```
-  dotnet ef migrations add <DescriptiveName> \
-    --project source/AiPMOInsight.Infrastructure --startup-project source/AiPMOInsight.Api
-  ```
+- Every test must run **offline**. No network, no real compiler, no real git repository — that is what the ports in `Loop.Engine.Core/Abstractions` exist for. A test that needs one of those is a design problem, not a fixture problem.
+- Do not add a project reference to satisfy a compile error. `Architecture.Tests` will fail the build, and it is right to.

@@ -2,8 +2,12 @@
 type: Design Spec
 title: "Authentication and authorization"
 description: "Token shapes and claims, TTLs, cookie flags and scoping, refresh rotation and reuse detection, threat model, and the path to OIDC/SSO. The section numbers here are what gap.md refers to."
-status: current
+status: historical
 ---
+
+> **The code this describes is no longer in the repo.** The `LoopEngineering.*` service
+> template was removed when this became a Loop.Engine-only repository. Kept as the auth design spec,
+> reusable if that service is ever rebuilt. It describes nothing that runs here today.
 
 # RFC: JWT-Based Authentication & Token Management
 
