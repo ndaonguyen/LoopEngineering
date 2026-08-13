@@ -26,6 +26,7 @@ namespace Loop.Engine.Worker.Pipeline;
 public sealed class IssuePollingService : BackgroundService
 {
     private readonly IIssueSource _issues;
+    private readonly IInFlightFixes _inFlight;
     private readonly IInvestigator _investigator;
     private readonly IPlanner _planner;
     private readonly ICoder _coder;
@@ -46,6 +47,7 @@ public sealed class IssuePollingService : BackgroundService
 
     public IssuePollingService(
         IIssueSource issues,
+        IInFlightFixes inFlight,
         IInvestigator investigator,
         IPlanner planner,
         ICoder coder,
@@ -65,6 +67,7 @@ public sealed class IssuePollingService : BackgroundService
         ILogger<IssuePollingService> logger)
     {
         _issues = issues;
+        _inFlight = inFlight;
         _investigator = investigator;
         _planner = planner;
         _coder = coder;
@@ -117,7 +120,11 @@ public sealed class IssuePollingService : BackgroundService
             var issues = await _issues.GetOpenIssuesAsync(cancellationToken);
             Console.WriteLine(IssueReportFormatter.FormatAll(issues, _pipeline.RequiredLabel));
 
-            var target = SelectTarget(issues);
+            // Asked before picking, not after: an issue whose fix is already open would
+            // otherwise be rebuilt from scratch every tick and fail at push.
+            var inFlight = await _inFlight.GetIssuesWithOpenFixAsync(cancellationToken);
+
+            var target = SelectTarget(issues, inFlight);
             if (target is not null)
             {
                 await InvestigateAsync(target, cancellationToken);
@@ -142,9 +149,10 @@ public sealed class IssuePollingService : BackgroundService
     /// <see cref="IssueSelector"/> for the policy. Anything that stops a tick from working
     /// is said out loud: doing nothing quietly is indistinguishable from success.
     /// </summary>
-    private Issue? SelectTarget(IReadOnlyList<Issue> issues)
+    private Issue? SelectTarget(IReadOnlyList<Issue> issues, IReadOnlySet<int> inFlight)
     {
-        var selection = IssueSelector.Select(issues, _pipeline.IssueNumber, _pipeline.RequiredLabel);
+        var selection = IssueSelector.Select(
+            issues, _pipeline.IssueNumber, _pipeline.RequiredLabel, inFlight);
 
         if (selection.Rejection is { } reason)
         {

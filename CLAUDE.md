@@ -48,7 +48,7 @@ Loop.Engine.Core ← Agents, GitHub ← Worker ← Loop.Engine (host)
 `Loop.Engine.Core` has **no project references at all** and must keep it that way.
 `Loop.Engine.Core/Abstractions` owns the ports (`IInvestigator`, `IPlanner`,
 `ICoder`, `IReproducer`, `IReviewer`, `IBuildRunner`, `IGitPublisher`, `IIssueSource`,
-`IPullRequestPublisher`, `IFixWorkspace`); `Agents` and `GitHub` implement them and never call
+`IInFlightFixes`, `IPullRequestPublisher`, `IFixWorkspace`); `Agents` and `GitHub` implement them and never call
 each other; `Worker/Pipeline` is the only place that composes them.
 
 `tests/Architecture.Tests` enforces this by parsing the `.csproj` files — it holds no project

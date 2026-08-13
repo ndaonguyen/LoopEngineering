@@ -33,22 +33,44 @@ public static class IssueSelector
     public static bool IsEligible(Issue issue, string requiredLabel) =>
         string.IsNullOrWhiteSpace(requiredLabel) || HasLabel(issue, requiredLabel);
 
+    /// <param name="inFlight">
+    /// Issue numbers that already have an open fix pull request. Skipped when picking
+    /// automatically, because the engine cannot resume a branch — it would rebuild the same
+    /// fix and fail at publish. An explicit <paramref name="requested"/> still wins: naming a
+    /// number is a deliberate act, and re-running a stage against a known bug is how retrieval
+    /// gets checked.
+    /// </param>
     public static IssueSelection Select(
-        IReadOnlyList<Issue> issues, int? requested, string requiredLabel)
+        IReadOnlyList<Issue> issues,
+        int? requested,
+        string requiredLabel,
+        IReadOnlySet<int>? inFlight = null)
     {
         var filtering = !string.IsNullOrWhiteSpace(requiredLabel);
 
         if (requested is not { } wanted)
         {
             // Oldest first: a bug that has been open longest has waited longest.
-            var next = issues
+            var eligible = issues
                 .Where(i => IsEligible(i, requiredLabel))
                 .OrderBy(i => i.Number)
-                .FirstOrDefault();
+                .ToList();
+
+            var next = eligible.FirstOrDefault(i => inFlight?.Contains(i.Number) != true);
 
             if (next is not null)
             {
                 return IssueSelection.Chosen(next);
+            }
+
+            // Everything eligible is taken. Said separately from "nothing is labelled" because
+            // the two need opposite responses: one wants a label, this one wants a review.
+            if (eligible.Count > 0)
+            {
+                return IssueSelection.Rejected(
+                    $"All {eligible.Count} eligible issue(s) already have an open fix pull " +
+                    "request. The engine stops at a green pull request and a human merges, so " +
+                    "nothing new is picked up until one is merged or closed.");
             }
 
             return IssueSelection.Rejected(

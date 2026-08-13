@@ -90,7 +90,10 @@ public sealed class ReproducerAgent : IReproducer
             return null;
         }
 
-        var name = TestIdentity.TryReadFullyQualifiedName(reply.Contents);
+        // Before reading the name, so the filter targets the class that will actually exist.
+        var contents = TestTypeName.Rewrite(reply.Contents, issue.Number);
+
+        var name = TestIdentity.TryReadFullyQualifiedName(contents);
 
         if (name is null)
         {
@@ -101,18 +104,27 @@ public sealed class ReproducerAgent : IReproducer
             return null;
         }
 
-        var path = TestFilePath.InsideProject(reply.Path, _verification.TestProject);
+        // The file name follows the class name, for the reason the class name is decided
+        // here at all: both are mechanical, and a name the repository already uses does not
+        // compile. Only the leaf changes; the directory is still the model's, then relocated.
+        var directory = Path.GetDirectoryName(reply.Path)?.Replace('\\', '/').TrimEnd('/');
+        var proposed = string.IsNullOrWhiteSpace(directory)
+            ? $"{TestTypeName.For(issue.Number)}.cs"
+            : $"{directory}/{TestTypeName.For(issue.Number)}.cs";
+
+        var path = TestFilePath.InsideProject(proposed, _verification.TestProject);
 
         if (!string.Equals(path, reply.Path, StringComparison.Ordinal))
         {
             _logger.LogWarning(
-                "Reproduction test was addressed to '{Proposed}', which no project compiles. " +
-                "Writing it to '{Relocated}' instead.", reply.Path, path);
+                "Reproduction test was addressed to '{Proposed}'; writing it to '{Relocated}' " +
+                "so a compiled project owns it and its type name cannot collide.",
+                reply.Path, path);
         }
 
         _logger.LogInformation("Reproduction test for #{Number}: {Name}", issue.Number, name);
 
-        return new ReproductionTest(path, reply.Contents, name);
+        return new ReproductionTest(path, contents, name);
     }
 
     /// <summary>
@@ -128,35 +140,26 @@ public sealed class ReproducerAgent : IReproducer
     private List<RetrievedFile> SupportingTypes(
         IReadOnlyList<RetrievedFile> files, IReadOnlyList<RetrievedFile> exemplars)
     {
-        var wanted = files
-            .SelectMany(f => SignatureTypes.Extract(f.Excerpt))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
-        if (wanted.Count == 0)
-        {
-            return [];
-        }
-
-        var already = files.Concat(exemplars)
-            .Select(f => f.RelativePath)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var supporting = _retriever.Retrieve(wanted)
-            .Where(f => !already.Contains(f.RelativePath))
-            .Take(MaxSupportingFiles)
-            .ToList();
+        var supporting = SupportingTypeWalk.From(
+            files,
+            files.Concat(exemplars).Select(f => f.RelativePath),
+            _retriever.Retrieve,
+            MaxSupportingFiles);
 
         _logger.LogInformation(
-            "Retrieved {Count} supporting type file(s) for {Wanted} type(s) named in signatures.",
-            supporting.Count, wanted.Count);
+            "Retrieved {Count} supporting type file(s) within {Hops} hop(s) of the code under test.",
+            supporting.Count, SupportingTypeWalk.DefaultHops);
 
-        return supporting;
+        return supporting.ToList();
     }
 
     /// <summary>
-    /// A cap, because retrieval scores content matches too and a common type name can drag
-    /// in half the repository. The types a single method's signature needs are few.
+    /// A cap across every hop, because retrieval scores content matches too and a common type
+    /// name can drag in half the repository.
+    ///
+    /// Raised from four when the walk became two hops: the first hop spends the budget on the
+    /// types in the signature, leaving nothing for the types *those* need — which is the whole
+    /// point of the second hop.
     /// </summary>
-    private const int MaxSupportingFiles = 4;
+    private const int MaxSupportingFiles = 8;
 }
