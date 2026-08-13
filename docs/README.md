@@ -29,6 +29,21 @@ Reach in here for the history behind a decision — not to learn how anything be
   from their cause. Read at `fix-bug-issue` Step 4, appended at Step 8 so entries ride in a fix PR
   and get human review. Not a changelog — no entry is the normal outcome. `living`.
 
+## The removed service template
+
+`LoopEngineering.Api` / `.Application` / `.Domain` / `.Infrastructure` and their tests were
+deleted when this became a Loop.Engine-only repository. Their design survives here, reusable if
+that service is ever rebuilt — and describing nothing that runs today.
+
+- [authentication.md](authentication.md) — the auth design spec: token shapes and claims, TTLs,
+  cookie flags and scoping, refresh rotation and reuse detection, threat model, the path to
+  OIDC/SSO. `historical`.
+- [database.md](database.md) — EF Core + Npgsql wiring, the Identity tables, schema ownership,
+  migration commands, the concrete auth classes and endpoint list. `historical`.
+- [gap.md](gap.md) — where that code had diverged from the spec at the point of removal,
+  classified security / behavioural / schema / by-design. Also the worked example of reporting a
+  doc-versus-code conflict. `historical`.
+
 ## Per-issue paperwork
 
 - [plans/](plans/) — section-by-section implementation plans for merged work: branch name and PR

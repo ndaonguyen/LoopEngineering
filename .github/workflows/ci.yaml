@@ -43,7 +43,7 @@ jobs:
           useConfigFile: true
 
       - name: Restore
-        run: dotnet restore && dotnet tool restore
+        run: dotnet restore
 
       - name: Build
         run: |

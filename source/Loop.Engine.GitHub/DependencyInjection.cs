@@ -37,6 +37,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IIssueSource, GitHubIssueSource>();
+        services.AddSingleton<IInFlightFixes, GitHubInFlightFixes>();
         services.AddSingleton<IGitPublisher, GitPublisher>();
         services.AddSingleton<IPullRequestPublisher, PullRequestPublisher>();
 

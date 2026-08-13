@@ -119,6 +119,7 @@ Every refusal is logged as a sentence. Match it here.
 |---|---|---|
 | `Configuration error in …` then exit code 1 | A required setting is missing or malformed | The listed failures name the setting |
 | `No open issue is labelled 'bug'` | Nothing eligible | Label an issue, or change `Pipeline:RequiredLabel` |
+| `All N eligible issue(s) already have an open fix pull request` | Everything is in flight — the engine stops at a green PR and waits for a human | Merge or close one. This is the normal steady state of a scheduled run, not a fault |
 | `Pipeline:IssueNumber=N … is not among the N open issue(s)` | Closed, or wrong repository | Check `GitHub:Owner` / `GitHub:Repository` |
 | `… is not labelled 'bug'` | The label check, working as intended | Label it, or change the required label |
 | `Reproduction rejected (NotProduced)` | The model returned nothing usable | Read the plan; the investigation may not have given it enough to write against |
@@ -157,9 +158,15 @@ the retriever. In practice retrieval never sees it — the pipeline repoints it 
 absolute path before any stage runs — but the two rules disagree, and **an absolute path is read
 identically by both**. Worth reconciling.
 
-**`Verification:TestProject` defaults to the engine's own test project**, not the solution. A fix
-to `LoopEngineering.*` is verified against `Loop.Engine.Tests`, which will not exercise it. Set
-it per target repository.
+**`Verification:TestProject` defaults to the engine's own test project.** Correct while the
+engine fixes itself, wrong the moment it is pointed elsewhere — and it used to fail silently,
+"verifying" a fix with a suite that never touched it.
+
+That is now guarded. When `VerifyFix` is on, startup checks that
+`<Repository:RootPath>/<Verification:TestProject>` exists and **refuses to run** if it does not,
+naming the path it looked for. It costs nothing when correct and fires before the first model
+call. Set `TestProject` to empty to run the whole solution instead — that is the deliberate
+escape hatch for a target with no single test project.
 
 **Costs are only reported if you supply the rates.** `Ai:InputCostPerMillion` /
 `OutputCostPerMillion` default to `0`, which prints tokens and no money. There is no built-in

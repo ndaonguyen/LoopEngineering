@@ -1,4 +1,6 @@
 using Loop.Engine.Agents;
+using Loop.Engine.Agents.Retrieval;
+using Loop.Engine.Agents.Verification;
 using Loop.Engine.GitHub;
 using Loop.Engine.Worker.Pipeline;
 using Microsoft.Extensions.Options;
@@ -20,6 +22,19 @@ var host = builder.Build();
 
 try
 {
+    // Before the first model call: a verification stage pointed at the wrong test project
+    // cannot fail honestly, so it must not be allowed to start.
+    var reason = TestProjectGuard.Check(
+        host.Services.GetRequiredService<IOptions<PipelineOptions>>().Value.VerifyFix,
+        host.Services.GetRequiredService<IOptions<RepositoryOptions>>().Value.RootPath,
+        host.Services.GetRequiredService<IOptions<VerificationOptions>>().Value.TestProject);
+
+    if (reason is not null)
+    {
+        throw new OptionsValidationException(
+            nameof(VerificationOptions), typeof(VerificationOptions), [reason]);
+    }
+
     await host.RunAsync();
 }
 catch (OptionsValidationException ex)

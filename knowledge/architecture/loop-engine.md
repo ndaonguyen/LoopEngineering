@@ -64,6 +64,7 @@ defined by **what they cannot express**:
 | `IInvestigator` | No way to change anything | Keeps the Planner tractable; a port that could write code would erode the split by the first deadline. |
 | `IGitPublisher` | No merge, no force-push, no delete | "Never merges" is the whole product. Leaving it to a prompt would make it a preference. |
 | `IPullRequestPublisher` | Cannot merge, approve, or close | Same reason. |
+| `IInFlightFixes` | Read-only — cannot change what is in flight | Deciding what is already being worked on must not be able to alter it. |
 
 **Do not add convenience methods to these interfaces.** Every absent method above is load-bearing.
 The guarantee is structural: a model cannot call what does not exist.
@@ -110,6 +111,11 @@ about the code; here a compiler and a test runner decide.
   specific issue says which one, not that it is a bug.
 - **One issue per tick, oldest first.** Concurrent branches racing each other only make the
   first failures harder to read.
+- **Never starts work that is already in flight.** An issue stays open until its pull request
+  merges, so `IInFlightFixes` derives the taken set from open `fix/<n>-*` branches — the same
+  join key the skills loop uses. Without it a scheduled run rebuilds the same fix every tick
+  and fails at push. An explicit `Pipeline:IssueNumber` still wins: naming a number is
+  deliberate.
 - **One worktree per run, shared by every stage** — retrieval, coding, building, publishing.
   Two trees disagreed twice in this project's history; once the repair loop resolved the
   disagreement by deleting code the compiler could not see, and reported success throughout.

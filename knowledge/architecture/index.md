@@ -21,12 +21,6 @@ a choice was made ([../decisions/](../decisions/index.md)), or what was built wh
   **absent** interface methods, the four `Pipeline` stage gates, run invariants, config surface.
 - [bug-loop.md](bug-loop.md) — the skills loop: how a tick decides, why state lives on GitHub,
   the guardrails, why the PR opens red, and how to run it.
-- [authentication.md](authentication.md) — the auth design spec. Its § numbers are what the gap
-  register cites.
-- [database.md](database.md) — EF Core + Npgsql, the Identity tables, schema ownership,
-  migrations, and the concrete auth implementation.
-- [gap.md](gap.md) — where the auth code diverges from the spec. Read before trusting
-  `authentication.md` on any specific claim.
 
 ## Dependency rules
 

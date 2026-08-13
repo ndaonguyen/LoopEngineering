@@ -22,15 +22,8 @@ pick, then open.
 - [The skills bug loop](architecture/bug-loop.md) — how a tick decides between `start` /
   `resume` / `wait` / `escalate` / `idle`; why all state lives on GitHub and what the join keys
   are; the guardrails; why the PR opens red; and how to run it.
-- [Authentication](architecture/authentication.md) — token shapes and claims, TTLs, cookie flags
-  and scoping, refresh rotation and reuse detection, threat model, the path to OIDC/SSO. Its §
-  numbers are what the gap register cites.
-- [Database and auth implementation](architecture/database.md) — EF Core + Npgsql wiring, the
-  Identity tables, who owns the schema, migration commands, dev auto-migrate versus deploy-step,
-  the concrete auth classes and endpoint list, local Postgres, switching provider.
-- [Auth gap register](architecture/gap.md) — where the auth **code diverges from** that spec,
-  classified security / behavioural / schema / by-design. Read before trusting the spec on any
-  specific claim. Also the worked example of reporting a doc-versus-code conflict.
+
+
 
 ## [Decisions](decisions/index.md)
 

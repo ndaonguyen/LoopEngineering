@@ -6,9 +6,9 @@ namespace Architecture.Tests;
 /// <summary>
 /// The dependency rules from CLAUDE.md, as a build failure rather than a paragraph.
 ///
-/// Both stacks point inwards, and the two innermost projects depend on nothing at all. Those
-/// facts were true, documented, and unenforced — which is the state in which they stop being
-/// true without anyone noticing.
+/// The graph points inwards and its innermost project depends on nothing at all. Those facts
+/// were true, documented, and unenforced — which is the state in which they stop being true
+/// without anyone noticing.
 /// </summary>
 public class ArchitectureTests
 {
@@ -21,13 +21,7 @@ public class ArchitectureTests
     /// </summary>
     private static readonly Dictionary<string, string[]> Allowed = new(StringComparer.Ordinal)
     {
-        // The template: Domain ← Application ← Infrastructure ← Api
-        ["LoopEngineering.Domain"] = [],
-        ["LoopEngineering.Application"] = ["LoopEngineering.Domain"],
-        ["LoopEngineering.Infrastructure"] = ["LoopEngineering.Application"],
-        ["LoopEngineering.Api"] = ["LoopEngineering.Application", "LoopEngineering.Infrastructure"],
-
-        // Loop.Engine: Core ← {Agents, GitHub} ← Worker ← host
+        // Core ← {Agents, GitHub} ← Worker ← host
         ["Loop.Engine.Core"] = [],
         ["Loop.Engine.Agents"] = ["Loop.Engine.Core"],
         ["Loop.Engine.GitHub"] = ["Loop.Engine.Core"],
@@ -36,10 +30,10 @@ public class ArchitectureTests
     };
 
     /// <summary>
-    /// The inner ring. These hold ports and models; everything depends on them and they depend
+    /// The inner ring. It holds the ports and the model; everything depends on it and it depends
     /// on nothing, so a port can never acquire a dependency on its own implementation.
     /// </summary>
-    public static TheoryData<string> InnerRing => ["LoopEngineering.Domain", "Loop.Engine.Core"];
+    public static TheoryData<string> InnerRing => ["Loop.Engine.Core"];
 
     [Theory]
     [MemberData(nameof(InnerRing))]
